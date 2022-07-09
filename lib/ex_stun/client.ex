@@ -1,4 +1,7 @@
 defmodule ExStun.Client do
+  @moduledoc """
+  STUN Client
+  """
   use GenServer
 
   alias ExStun.Message
@@ -25,10 +28,9 @@ defmodule ExStun.Client do
   end
 
   @impl true
-  def handle_info({:udp, socket, ip, port, data}, state) do
+  def handle_info({:udp, _socket, _ip, _port, data}, state) do
     IO.iodata_to_binary(data)
     |> ExStun.Message.decode()
-    |> IO.inspect()
 
     {:noreply, state}
   end

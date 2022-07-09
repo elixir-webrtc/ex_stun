@@ -1,4 +1,8 @@
 defmodule ExStun.Message.Class do
+  @moduledoc """
+  STUN Message Class
+  """
+
   @type t() :: :request | :success_response | :error_response | :indication
   def encode(:request), do: 0x00
   def encode(:indication), do: 0x01

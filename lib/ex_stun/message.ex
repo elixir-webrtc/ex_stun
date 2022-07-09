@@ -1,4 +1,23 @@
 defmodule ExStun.Message do
+  @moduledoc """
+  STUN Message 
+
+  ```ascii
+        0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |0 0|     STUN Message Type     |         Message Length        |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |                         Magic Cookie                          |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |                                                               |
+     |                     Transaction ID (96 bits)                  |
+     |                                                               |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                  Figure 2: Format of STUN Message Header
+  ```
+  """
   use Bitwise
 
   alias ExStun.Message.{Attribute, Type}
@@ -45,8 +64,8 @@ defmodule ExStun.Message do
   end
 
   def decode(
-        <<0::1, 0::1, type::14, len::16, @magic_cookie::32, transaction_id::96,
-          attributes::binary>>
+        <<0::1, 0::1, type::14, _len::16, @magic_cookie::32, transaction_id::96,
+          _attributes::binary>>
       ) do
     type = Type.decode(<<type::14>>)
     attributes = []
@@ -58,7 +77,7 @@ defmodule ExStun.Message do
     }
   end
 
-  def decode(other), do: {:error, :malformed_packet}
+  def decode(_other), do: {:error, :malformed_packet}
 
   def add_attribute(message, attr) do
     %__MODULE__{message | attributes: message.attributes ++ [attr]}

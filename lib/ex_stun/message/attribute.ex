@@ -1,4 +1,7 @@
 defmodule ExStun.Message.Attribute do
+  @moduledoc """
+  STUN Message Attribute
+  """
   @type t() :: %__MODULE__{
           type: non_neg_integer(),
           value: binary()
