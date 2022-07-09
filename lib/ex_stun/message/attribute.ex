@@ -1,4 +1,9 @@
 defmodule ExStun.Message.Attribute do
+  @type t() :: %__MODULE__{
+          type: non_neg_integer(),
+          value: binary()
+        }
+
   defstruct [
     :type,
     :value
@@ -9,11 +14,8 @@ defmodule ExStun.Message.Attribute do
 
     needed_padding = attribute.value |> byte_size() |> rem(4)
     value = add_padding(attribute.value, needed_padding)
-    <<attribute.type::16, length::16, value>>
-  end
 
-  def decode(_raw) do
-    %__MODULE__{}
+    <<attribute.type::16, length::16, value>>
   end
 
   defp add_padding(data, needed_padding) do

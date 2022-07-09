@@ -8,7 +8,7 @@ defmodule ExStun.Message do
   @type t() :: %__MODULE__{
           type: Type.t(),
           transaction_id: integer(),
-          attributes: []
+          attributes: [Attribute.t()]
         }
 
   defstruct [
@@ -58,10 +58,18 @@ defmodule ExStun.Message do
     }
   end
 
-  def decode(other), do: {:error, :malformed_packet, other}
+  def decode(other), do: {:error, :malformed_packet}
 
   def add_attribute(message, attr) do
     %__MODULE__{message | attributes: message.attributes ++ [attr]}
+  end
+
+  def get_attribute(message, attr_type) do
+    Enum.find(message.attributes, &(&1.type == attr_type))
+  end
+
+  def get_attributes(message, attr_type) do
+    Enum.filter(message.attributes, &(&1.type == attr_type))
   end
 
   defp new_transaction_id() do
