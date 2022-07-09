@@ -1,7 +1,7 @@
 defmodule ExStun.ClientTest do
   use ExUnit.Case
 
-  alias ExStun.Message
+  # alias ExStun.Message
 
   test "" do
     {:ok, pid} = ExStun.Client.start_link('stun.l.google.com', 19_302)

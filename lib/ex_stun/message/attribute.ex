@@ -1,6 +1,18 @@
 defmodule ExStun.Message.Attribute do
   @moduledoc """
   STUN Message Attribute
+
+  ```ascii
+      0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |         Type                  |            Length             |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                         Value (variable)                ....
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                Figure 4: Format of STUN Attributes
+  ```
   """
   @type t() :: %__MODULE__{
           type: non_neg_integer(),

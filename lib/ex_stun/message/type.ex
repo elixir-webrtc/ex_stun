@@ -50,7 +50,7 @@ defmodule ExStun.Message.Type do
     class = Class.decode(class)
     method = Method.decode(method)
 
-    %__MODULE__{class: class, method: method}
+    {:ok, %__MODULE__{class: class, method: method}}
   end
 
   def decode(_other), do: {:error, :malformed_type}
