@@ -24,17 +24,24 @@ defmodule ExStun.Message.Attribute do
     :value
   ]
 
+  @doc """
+  Encodes attribute to binary.
+
+  This function adds padding to align attributes on 32 bit boundary. 
+
+  ## Example
+
+      iex> attr = %#{inspect(__MODULE__)}{type: 0x8022, value: "my_ex_stun_client"}
+      iex> #{inspect(__MODULE__)}.encode(attr)
+      <<0x8022::16, 17::16, "my_ex_stun_client"::binary, 0, 0, 0>>
+  """
+  @spec encode(t()) :: binary()
   def encode(attribute) do
     length = byte_size(attribute.value)
 
-    needed_padding = attribute.value |> byte_size() |> rem(4)
-    value = add_padding(attribute.value, needed_padding)
+    padding_len = rem(4 - rem(byte_size(attribute.value), 4), 4)
+    value = <<attribute.value::binary, 0::padding_len*8>>
 
-    <<attribute.type::16, length::16, value>>
-  end
-
-  defp add_padding(data, needed_padding) do
-    padding = for _i <- needed_padding, into: <<>>, do: <<0>>
-    <<data, padding>>
+    <<attribute.type::16, length::16, value::binary>>
   end
 end
