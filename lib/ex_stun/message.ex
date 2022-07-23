@@ -45,15 +45,12 @@ defmodule ExStun.Message do
 
   @spec encode(t()) :: binary()
   def encode(message) do
-    type = Type.encode(message.type)
-
-    attributes =
-      for attribute <- message.attributes, into: <<>> do
-        Attribute.encode(attribute)
-      end
-
+    type = Type.to_value(message.type)
+    attributes = encode_attributes(message.attributes)
     length = byte_size(attributes)
-    <<0::1, 0::1, type::bitstring, length::16, @magic_cookie::32, message.transaction_id::binary>>
+
+    <<0::1, 0::1, type::14, length::16, @magic_cookie::32, message.transaction_id::96,
+      attributes::binary>>
   end
 
   @spec decode(binary()) :: {:ok, t()} | {:error, term()}
@@ -67,7 +64,7 @@ defmodule ExStun.Message do
         <<0::1, 0::1, type::14, _len::16, @magic_cookie::32, transaction_id::96,
           attributes::binary>>
       ) do
-    with {:ok, type} <- Type.decode(<<type::14>>),
+    with {:ok, type} <- Type.from_value(type),
          {:ok, attributes} <- decode_attributes(attributes) do
       {:ok,
        %__MODULE__{
@@ -93,7 +90,16 @@ defmodule ExStun.Message do
   end
 
   defp new_transaction_id() do
-    :crypto.strong_rand_bytes(12)
+    <<t_id::12*8>> = :crypto.strong_rand_bytes(12)
+    t_id
+  end
+
+  defp encode_attributes([]), do: <<>>
+
+  defp encode_attributes(attributes) do
+    for attribute <- attributes, into: <<>> do
+      Attribute.encode(attribute)
+    end
   end
 
   defp decode_attributes(attributes, acc \\ [])

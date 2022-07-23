@@ -26,10 +26,13 @@ defmodule ExStun.Message.Type do
     :method
   ]
 
-  @spec encode(t()) :: binary()
-  def encode(type) do
-    c = Class.encode(type.class)
-    m = Method.encode(type.method)
+  @doc """
+  Converts type into an integer.
+  """
+  @spec to_value(t()) :: non_neg_integer()
+  def to_value(type) do
+    c = Class.to_value(type.class)
+    m = Method.to_value(type.method)
 
     a = m &&& 0b000000001111
     b = m &&& 0b000001110000
@@ -38,20 +41,24 @@ defmodule ExStun.Message.Type do
     c0 = (c &&& 0b01) <<< 4
     c1 = (c &&& 0b10) <<< 7
 
-    (a + c0 + (b <<< 1) + c1 + (d <<< 2))
-    |> then(&<<&1::14>>)
+    a + c0 + (b <<< 1) + c1 + (d <<< 2)
   end
 
-  @spec decode(binary()) :: t()
-  def decode(<<a::5, c0::1, b::3, c1::1, d::4>>) do
+  @doc """
+  Converts integer into a type.
+  """
+  @spec from_value(non_neg_integer()) :: {:ok, t()} | {:error, :malformed_type}
+  def from_value(value) when value in 0..((2 <<< 14) - 1) do
+    <<a::5, c0::1, b::3, c1::1, d::4>> = <<value::14>>
+
     <<class::2>> = <<c0::1, c1::1>>
     <<method::12>> = <<a::5, b::3, d::4>>
 
-    class = Class.decode(class)
-    method = Method.decode(method)
-
-    {:ok, %__MODULE__{class: class, method: method}}
+    with {:ok, class} <- Class.from_value(class),
+         {:ok, method} <- Method.from_value(method) do
+      {:ok, %__MODULE__{class: class, method: method}}
+    end
   end
 
-  def decode(_other), do: {:error, :malformed_type}
+  def from_value(_other), do: {:error, :malformed_type}
 end

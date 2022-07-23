@@ -4,13 +4,27 @@ defmodule ExStun.Message.Class do
   """
 
   @type t() :: :request | :success_response | :error_response | :indication
-  def encode(:request), do: 0x00
-  def encode(:indication), do: 0x01
-  def encode(:success_response), do: 0x02
-  def encode(:error_response), do: 0x03
 
-  def decode(0x00), do: :request
-  def decode(0x01), do: :indication
-  def decode(0x02), do: :success_response
-  def decode(0x03), do: :error_response
+  @doc """
+  Converts class from an atom into an integer.
+  """
+  @spec to_value(t()) :: 0x00 | 0x01 | 0x02 | 0x03
+  def to_value(class)
+
+  def to_value(:request), do: 0x00
+  def to_value(:indication), do: 0x01
+  def to_value(:success_response), do: 0x02
+  def to_value(:error_response), do: 0x03
+
+  @doc """
+  Converts class from an integer into an atom.
+  """
+  @spec from_value(non_neg_integer()) :: {:ok, t()} | {:error, :unknown_class}
+  def from_value(value)
+
+  def from_value(0x00), do: {:ok, :request}
+  def from_value(0x01), do: {:ok, :indication}
+  def from_value(0x02), do: {:ok, :success_response}
+  def from_value(0x03), do: {:ok, :error_response}
+  def from_value(_other), do: {:error, :unknown_class}
 end
