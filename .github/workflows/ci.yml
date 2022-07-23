@@ -26,6 +26,9 @@ jobs:
       matrix:
         otp: ['25']
         elixir: ['1.13.2']
+    env:
+      MIX_ENV: test
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - uses: erlef/setup-beam@v1
@@ -33,4 +36,5 @@ jobs:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
       - run: mix deps.get
-      - run: mix test
+      - run: mix coveralls.json
+      - uses: codecov/codecov-action@v3
