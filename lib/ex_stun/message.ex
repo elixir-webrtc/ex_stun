@@ -24,6 +24,21 @@ defmodule ExStun.Message do
 
   @magic_cookie 0x2112A442
 
+  @typedoc """
+  Possible `Message.decode/1` error reasons.
+
+  * `:not_enough_data` - provided binary is less than 20 bytes
+  * `:malformed_header` - improper message header e.g. invalid cookie
+  * `:unknown_method` - unknown message type method
+  * `:malformed_attr_padding` - one or more attributes are not followed by 
+  long enough padding or padding is not 0. 
+  """
+  @type decode_error_t() ::
+          :not_enough_data
+          | :malformed_header
+          | :malformed_type
+          | :malformed_attr_padding
+
   @type t() :: %__MODULE__{
           type: Type.t(),
           transaction_id: integer(),
@@ -36,6 +51,10 @@ defmodule ExStun.Message do
     attributes: []
   ]
 
+  @doc """
+  Creates a new STUN message with a random transaction id.
+  """
+  @spec new(Type.t()) :: t()
   def new(type) do
     %__MODULE__{
       type: type,
@@ -43,6 +62,9 @@ defmodule ExStun.Message do
     }
   end
 
+  @doc """
+  Encodes a STUN message a into binary.
+  """
   @spec encode(t()) :: binary()
   def encode(message) do
     type = Type.to_value(message.type)
@@ -53,7 +75,10 @@ defmodule ExStun.Message do
       attributes::binary>>
   end
 
-  @spec decode(binary()) :: {:ok, t()} | {:error, term()}
+  @doc """
+  Decodes a binary into a STUN message.
+  """
+  @spec decode(binary()) :: {:ok, t()} | {:error, decode_error_t()}
   def decode(raw)
 
   def decode(raw) when byte_size(raw) < 20 do
@@ -75,7 +100,7 @@ defmodule ExStun.Message do
     end
   end
 
-  def decode(_other), do: {:error, :malformed_packet}
+  def decode(_other), do: {:error, :malformed_header}
 
   def add_attribute(message, attr) do
     %__MODULE__{message | attributes: message.attributes ++ [attr]}
