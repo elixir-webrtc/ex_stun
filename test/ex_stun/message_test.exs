@@ -114,6 +114,22 @@ defmodule ExStun.MessageTest do
     end
   end
 
+  describe "Message.add_attribute/2" do
+    test "adds attribute to a message correctly" do
+      message = Message.new(%Type{class: :request, method: :binding})
+      message = Message.add_attribute(message, @d_attr)
+      assert message.attributes == [@d_attr]
+
+      message = Message.add_attribute(message, @d_attr1)
+      assert message.attributes == [@d_attr, @d_attr1]
+    end
+
+    test "raises when trying to add attribute of type different than t:Attribute.t/0" do
+      message = Message.new(%Type{class: :request, method: :binding})
+      assert_raise FunctionClauseError, fn -> Message.add_attribute(message, 1) end
+    end
+  end
+
   describe "Message.get_attribute/2" do
     test "returns attribute when it is present in a message" do
       message = <<@header::binary, @attr::binary>>

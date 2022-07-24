@@ -25,7 +25,7 @@ defmodule ExStun.Message do
   @magic_cookie 0x2112A442
 
   @typedoc """
-  Possible `Message.decode/1` error reasons.
+  Possible `decode/1` error reasons.
 
   * `:not_enough_data` - provided binary is less than 20 bytes
   * `:malformed_header` - improper message header e.g. invalid cookie
@@ -55,7 +55,7 @@ defmodule ExStun.Message do
   Creates a new STUN message with a random transaction id.
   """
   @spec new(Type.t()) :: t()
-  def new(type) do
+  def new(%Type{} = type) do
     %__MODULE__{
       type: type,
       transaction_id: new_transaction_id()
@@ -102,14 +102,30 @@ defmodule ExStun.Message do
 
   def decode(_other), do: {:error, :malformed_header}
 
-  def add_attribute(message, attr) do
+  @doc """
+  Adds attribute to a message.
+  """
+  @spec add_attribute(t(), Attribute.t()) :: t()
+  def add_attribute(message, %Attribute{} = attr) do
     %__MODULE__{message | attributes: message.attributes ++ [attr]}
   end
 
+  @doc """
+  Gets first attribute of given type from a message.
+
+  Returns `nil` if there is no attribute of given type.
+  """
+  @spec get_attribute(t(), non_neg_integer()) :: Attribute.t() | nil
   def get_attribute(message, attr_type) do
     Enum.find(message.attributes, &(&1.type == attr_type))
   end
 
+  @doc """
+  Gets all attributes of given type from a message.
+
+  Returns empty list if there is no attribute of given type.
+  """
+  @spec get_attributes(t(), non_neg_integer()) :: [Attribute.t()]
   def get_attributes(message, attr_type) do
     Enum.filter(message.attributes, &(&1.type == attr_type))
   end
