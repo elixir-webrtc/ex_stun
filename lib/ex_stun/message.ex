@@ -1,6 +1,6 @@
 defmodule ExStun.Message do
   @moduledoc """
-  STUN Message 
+  STUN Message
 
   ```ascii
         0                   1                   2                   3
@@ -30,8 +30,8 @@ defmodule ExStun.Message do
   * `:not_enough_data` - provided binary is less than 20 bytes
   * `:malformed_header` - improper message header e.g. invalid cookie
   * `:unknown_method` - unknown message type method
-  * `:malformed_attr_padding` - one or more attributes are not followed by 
-  long enough padding or padding is not 0. 
+  * `:malformed_attr_padding` - one or more attributes are not followed by
+  long enough padding or padding is not 0.
   """
   @type decode_error_t() ::
           :not_enough_data

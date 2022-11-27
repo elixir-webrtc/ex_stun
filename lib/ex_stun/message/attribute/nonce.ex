@@ -1,14 +1,14 @@
-defmodule ExStun.Message.Attribute.Realm do
+defmodule ExStun.Message.Attribute.Nonce do
   @moduledoc """
-  STUN Message Attribute Realm
+  STUN Message Attribute Nonce
   """
   alias ExStun.Message
   alias ExStun.Message.Attribute
 
-  # max realm size in bytes
-  @max_realm_size 763
+  # max nonce size in bytes
+  @max_nonce_size 763
 
-  @attr_type 0x0014
+  @attr_type 0x0015
 
   @type t() :: %__MODULE__{
           value: binary()
@@ -31,9 +31,9 @@ defmodule ExStun.Message.Attribute.Realm do
     end
   end
 
-  defp decode(data) when is_binary(data) and byte_size(data) < @max_realm_size do
+  defp decode(data) when is_binary(data) and byte_size(data) < @max_nonce_size do
     {:ok, %__MODULE__{value: data}}
   end
 
-  defp decode(_data), do: {:error, :invalid_realm}
+  defp decode(_data), do: {:error, :invalid_nonce}
 end
