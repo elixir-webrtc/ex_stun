@@ -41,12 +41,14 @@ defmodule ExStun.Message.Attribute.XORMappedAddress do
     end
   end
 
-  @spec to_raw_attribute(t(), Message.t()) :: Attribute.t()
-  def to_raw_attribute(%__MODULE__{} = xor_address, message) do
-    %Attribute{
+  @spec add_to_message(Message.t(), t()) :: Message.t()
+  def add_to_message(%Message{} = message, %__MODULE__{} = xor_address) do
+    attr = %Attribute{
       type: @attr_type,
       value: encode(xor_address, message)
     }
+
+    Message.add_attribute(message, attr)
   end
 
   defp encode(%__MODULE__{} = xor_address, message) do
