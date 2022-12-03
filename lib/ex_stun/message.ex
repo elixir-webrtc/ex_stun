@@ -63,6 +63,17 @@ defmodule ExStun.Message do
   end
 
   @doc """
+  Creates a new STUN message.
+  """
+  @spec new(integer(), Type.t()) :: t()
+  def new(transaction_id, %Type{} = type) do
+    %__MODULE__{
+      type: type,
+      transaction_id: transaction_id
+    }
+  end
+
+  @doc """
   Encodes a STUN message a into binary.
   """
   @spec encode(t()) :: binary()
