@@ -34,7 +34,7 @@ defmodule ExStun.Message.Attribute.MappedAddress do
          {:ok, port} <- encode_port(port),
          {:ok, address} <- encode_address(address) do
       value = <<0::8, family::binary, port::binary, address::binary>>
-      %ExStun.Message.Attribute{type: 0x0001, value: value}
+      %ExStun.Message.RawAttribute{type: 0x0001, value: value}
     end
   end
 

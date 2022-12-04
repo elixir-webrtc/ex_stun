@@ -1,8 +1,10 @@
 defmodule ExStun.RFC5769Test do
   use ExUnit.Case
 
+  alias ExStun.Message.RawAttribute
+
   test "sample request is parsed correctly" do
-    # the padding for username was changed from 3x(0x20) to 3x(0x00) to be 
+    # the padding for username was changed from 3x(0x20) to 3x(0x00) to be
     # compliant with RFC 8489
     req =
       <<0x00, 0x01, 0x00, 0x58, 0x21, 0x12, 0xA4, 0x42, 0xB7, 0xE7, 0xA7, 0x01, 0xBC, 0x34, 0xD6,
@@ -18,33 +20,33 @@ defmodule ExStun.RFC5769Test do
     assert message.type == %ExStun.Message.Type{class: :request, method: :binding}
     assert message.transaction_id == 56_915_807_328_848_210_473_588_875_182
 
-    assert %ExStun.Message.Attribute{type: 0x8022, value: "STUN test client"} =
+    assert %RawAttribute{type: 0x8022, value: "STUN test client"} =
              ExStun.Message.get_attribute(message, 0x8022)
 
-    assert %ExStun.Message.Attribute{type: 0x0024, value: <<110, 0, 1, 255>>} =
+    assert %RawAttribute{type: 0x0024, value: <<110, 0, 1, 255>>} =
              ExStun.Message.get_attribute(message, 0x0024)
 
-    assert %ExStun.Message.Attribute{
+    assert %RawAttribute{
              type: 0x8029,
              value: <<147, 47, 249, 177, 81, 38, 59, 54>>
            } = ExStun.Message.get_attribute(message, 0x8029)
 
-    assert %ExStun.Message.Attribute{type: 0x0006, value: "evtj:h6vY"} =
+    assert %RawAttribute{type: 0x0006, value: "evtj:h6vY"} =
              ExStun.Message.get_attribute(message, 0x0006)
 
-    assert %ExStun.Message.Attribute{
+    assert %RawAttribute{
              type: 0x0008,
              value:
                <<154, 234, 167, 12, 191, 216, 203, 86, 120, 30, 242, 181, 178, 211, 242, 73, 193,
                  181, 113, 162>>
            } = ExStun.Message.get_attribute(message, 0x0008)
 
-    assert %ExStun.Message.Attribute{type: 0x8028, value: <<229, 122, 59, 207>>} =
+    assert %RawAttribute{type: 0x8028, value: <<229, 122, 59, 207>>} =
              ExStun.Message.get_attribute(message, 0x8028)
   end
 
   test "sample ipv4 response is parsed correctly" do
-    # the padding for server name was changed from 1x(0x20) to 1x(0x00) to be 
+    # the padding for server name was changed from 1x(0x20) to 1x(0x00) to be
     # compliant with RFC 8489
     ipv4_resp =
       <<0x01, 0x01, 0x00, 0x3C, 0x21, 0x12, 0xA4, 0x42, 0xB7, 0xE7, 0xA7, 0x01, 0xBC, 0x34, 0xD6,
@@ -58,20 +60,20 @@ defmodule ExStun.RFC5769Test do
     assert message.type == %ExStun.Message.Type{class: :success_response, method: :binding}
     assert message.transaction_id == 56_915_807_328_848_210_473_588_875_182
 
-    assert %ExStun.Message.Attribute{type: 0x8022, value: "test vector"} =
+    assert %RawAttribute{type: 0x8022, value: "test vector"} =
              ExStun.Message.get_attribute(message, 0x8022)
 
-    assert %ExStun.Message.Attribute{type: 0x0020, value: <<0, 1, 161, 71, 225, 18, 166, 67>>} =
+    assert %RawAttribute{type: 0x0020, value: <<0, 1, 161, 71, 225, 18, 166, 67>>} =
              ExStun.Message.get_attribute(message, 0x0020)
 
-    assert %ExStun.Message.Attribute{
+    assert %RawAttribute{
              type: 0x0008,
              value:
                <<43, 145, 245, 153, 253, 158, 144, 195, 140, 116, 137, 249, 42, 249, 186, 83, 240,
                  107, 231, 215>>
            } = ExStun.Message.get_attribute(message, 0x0008)
 
-    assert %ExStun.Message.Attribute{type: 0x8028, value: <<192, 125, 76, 150>>} =
+    assert %RawAttribute{type: 0x8028, value: <<192, 125, 76, 150>>} =
              ExStun.Message.get_attribute(message, 0x8028)
   end
 

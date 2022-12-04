@@ -3,7 +3,7 @@ defmodule ExStun.MessageTest do
 
   alias ExStun.Message
   alias ExStun.Message.Type
-  alias ExStun.Message.Attribute
+  alias ExStun.Message.RawAttribute
 
   @m_type <<0x01::14>>
   @len <<0x00, 0x58>>
@@ -26,10 +26,10 @@ defmodule ExStun.MessageTest do
   @attr_header3 <<0x80, 0x22, 0x00, 0x13>>
   @attr3 <<@attr_header3::binary, "STUN test client111"::binary, 0>>
 
-  @d_attr %Attribute{type: @attr_type, value: "STUN test client"}
-  @d_attr1 %Attribute{type: @attr_type, value: "STUN test client1"}
-  @d_attr2 %Attribute{type: @attr_type, value: "STUN test client11"}
-  @d_attr3 %Attribute{type: @attr_type, value: "STUN test client111"}
+  @d_attr %RawAttribute{type: @attr_type, value: "STUN test client"}
+  @d_attr1 %RawAttribute{type: @attr_type, value: "STUN test client1"}
+  @d_attr2 %RawAttribute{type: @attr_type, value: "STUN test client11"}
+  @d_attr3 %RawAttribute{type: @attr_type, value: "STUN test client111"}
 
   describe "Message.decode/1" do
     test "decodes message without attributes correctly" do

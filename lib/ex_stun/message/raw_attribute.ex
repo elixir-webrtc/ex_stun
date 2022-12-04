@@ -1,4 +1,4 @@
-defmodule ExStun.Message.Attribute do
+defmodule ExStun.Message.RawAttribute do
   @moduledoc """
   STUN Message Attribute
 
@@ -27,7 +27,7 @@ defmodule ExStun.Message.Attribute do
   @doc """
   Encodes attribute to binary.
 
-  This function adds padding to align attributes on 32 bit boundary. 
+  This function adds padding to align attributes on 32 bit boundary.
 
   ## Example
 

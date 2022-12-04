@@ -3,7 +3,7 @@ defmodule ExStun.Message.Attribute.ErrorCode do
   STUN Message Attribute Error-Code
   """
   alias ExStun.Message
-  alias ExStun.Message.Attribute
+  alias ExStun.Message.RawAttribute
 
   # max reason size in bytes
   @max_reason_size 20
@@ -20,7 +20,7 @@ defmodule ExStun.Message.Attribute.ErrorCode do
 
   @spec add_to_message(t(), Message.t()) :: Message.t()
   def add_to_message(%__MODULE__{} = attr, message) do
-    raw_attribute = %Attribute{type: @attr_type, value: encode(attr)}
+    raw_attribute = %RawAttribute{type: @attr_type, value: encode(attr)}
     Message.add_attribute(message, raw_attribute)
   end
 

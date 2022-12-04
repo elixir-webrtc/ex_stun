@@ -3,7 +3,7 @@ defmodule ExStun.Message.Attribute.MessageIntegrity do
   STUN Message Attribute Message-Integrity
   """
   alias ExStun.Message
-  alias ExStun.Message.Attribute
+  alias ExStun.Message.RawAttribute
 
   # max message integrity size in bytes
   @max_message_integrity_size 20
@@ -19,7 +19,7 @@ defmodule ExStun.Message.Attribute.MessageIntegrity do
 
   @spec add_to_message(t(), Message.t()) :: Message.t()
   def add_to_message(%__MODULE__{value: value}, message) do
-    raw_attribute = %Attribute{type: @attr_type, value: value}
+    raw_attribute = %RawAttribute{type: @attr_type, value: value}
     Message.add_attribute(message, raw_attribute)
   end
 

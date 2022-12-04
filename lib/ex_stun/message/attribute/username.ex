@@ -1,14 +1,14 @@
-defmodule ExStun.Message.Attribute.Nonce do
+defmodule ExStun.Message.Attribute.Username do
   @moduledoc """
-  STUN Message Attribute Nonce
+  STUN Message Attribute Username
   """
   alias ExStun.Message
   alias ExStun.Message.RawAttribute
 
-  # max nonce size in bytes
-  @max_nonce_size 763
+  # max username size in bytes
+  @max_username_size 763
 
-  @attr_type 0x0015
+  @attr_type 0x0006
 
   @type t() :: %__MODULE__{
           value: binary()
@@ -23,7 +23,7 @@ defmodule ExStun.Message.Attribute.Nonce do
     Message.add_attribute(message, raw_attribute)
   end
 
-  @spec get_from_message(Message.t()) :: t() | nil
+  @spec get_from_message(Message.t()) :: {:ok, t()} | {:error, :invalid_username} | nil
   def get_from_message(%Message{} = message) do
     case Message.get_attribute(message, @attr_type) do
       nil -> nil
@@ -31,9 +31,9 @@ defmodule ExStun.Message.Attribute.Nonce do
     end
   end
 
-  defp decode(data) when is_binary(data) and byte_size(data) < @max_nonce_size do
+  defp decode(data) when is_binary(data) and byte_size(data) < @max_username_size do
     {:ok, %__MODULE__{value: data}}
   end
 
-  defp decode(_data), do: {:error, :invalid_nonce}
+  defp decode(_data), do: {:error, :invalid_username}
 end

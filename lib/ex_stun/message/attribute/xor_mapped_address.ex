@@ -16,7 +16,7 @@ defmodule ExStun.Message.Attribute.XORMappedAddress do
   """
   import Bitwise
   alias ExStun.Message
-  alias ExStun.Message.Attribute
+  alias ExStun.Message.RawAttribute
 
   @attr_type 0x0020
   @magic_cookie 0x2112A442
@@ -43,7 +43,7 @@ defmodule ExStun.Message.Attribute.XORMappedAddress do
 
   @spec add_to_message(Message.t(), t()) :: Message.t()
   def add_to_message(%Message{} = message, %__MODULE__{} = xor_address) do
-    attr = %Attribute{
+    attr = %RawAttribute{
       type: @attr_type,
       value: encode(xor_address, message)
     }

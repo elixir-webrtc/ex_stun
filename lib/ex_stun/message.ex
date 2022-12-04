@@ -20,7 +20,7 @@ defmodule ExStun.Message do
   """
   use Bitwise
 
-  alias ExStun.Message.{Attribute, Type}
+  alias ExStun.Message.{RawAttribute, Type}
 
   @magic_cookie 0x2112A442
 
@@ -42,14 +42,12 @@ defmodule ExStun.Message do
   @type t() :: %__MODULE__{
           type: Type.t(),
           transaction_id: integer(),
-          attributes: [Attribute.t()]
+          attributes: [RawAttribute.t()],
+          raw: binary()
         }
 
-  defstruct [
-    :type,
-    :transaction_id,
-    attributes: []
-  ]
+  @enforce_keys [:type, :transaction_id]
+  defstruct @enforce_keys ++ [attributes: [], raw: <<>>]
 
   @doc """
   Creates a new STUN message with a random transaction id.
@@ -98,7 +96,7 @@ defmodule ExStun.Message do
 
   def decode(
         <<0::1, 0::1, type::14, _len::16, @magic_cookie::32, transaction_id::96,
-          attributes::binary>>
+          attributes::binary>> = msg
       ) do
     with {:ok, type} <- Type.from_value(type),
          {:ok, attributes} <- decode_attributes(attributes) do
@@ -106,7 +104,8 @@ defmodule ExStun.Message do
        %__MODULE__{
          type: type,
          transaction_id: transaction_id,
-         attributes: attributes
+         attributes: attributes,
+         raw: msg
        }}
     end
   end
@@ -116,8 +115,8 @@ defmodule ExStun.Message do
   @doc """
   Adds attribute to a message.
   """
-  @spec add_attribute(t(), Attribute.t()) :: t()
-  def add_attribute(message, %Attribute{} = attr) do
+  @spec add_attribute(t(), RawAttribute.t()) :: t()
+  def add_attribute(message, %RawAttribute{} = attr) do
     %__MODULE__{message | attributes: message.attributes ++ [attr]}
   end
 
@@ -126,7 +125,7 @@ defmodule ExStun.Message do
 
   Returns `nil` if there is no attribute of given type.
   """
-  @spec get_attribute(t(), non_neg_integer()) :: Attribute.t() | nil
+  @spec get_attribute(t(), non_neg_integer()) :: RawAttribute.t() | nil
   def get_attribute(message, attr_type) do
     Enum.find(message.attributes, &(&1.type == attr_type))
   end
@@ -136,7 +135,7 @@ defmodule ExStun.Message do
 
   Returns empty list if there is no attribute of given type.
   """
-  @spec get_attributes(t(), non_neg_integer()) :: [Attribute.t()]
+  @spec get_attributes(t(), non_neg_integer()) :: [RawAttribute.t()]
   def get_attributes(message, attr_type) do
     Enum.filter(message.attributes, &(&1.type == attr_type))
   end
@@ -150,7 +149,7 @@ defmodule ExStun.Message do
 
   defp encode_attributes(attributes) do
     for attribute <- attributes, into: <<>> do
-      Attribute.encode(attribute)
+      RawAttribute.encode(attribute)
     end
   end
 
@@ -169,7 +168,7 @@ defmodule ExStun.Message do
     padding_len = rem(4 - rem(len, 4), 4)
 
     with {:ok, rest} <- strip_padding(rest, padding_len) do
-      attr = %Attribute{type: type, value: value}
+      attr = %RawAttribute{type: type, value: value}
       {:ok, attr, rest}
     end
   end
