@@ -17,7 +17,7 @@ defmodule ExStun.Message.Attribute.Nonce do
   @enforce_keys [:value]
   defstruct @enforce_keys
 
-  @spec get_from_message(Message.t()) :: t() | nil
+  @spec get_from_message(Message.t()) :: {:ok, t()} | {:error, :invalid_nonce} | nil
   def get_from_message(%Message{} = message) do
     case Message.get_attribute(message, @attr_type) do
       nil -> nil

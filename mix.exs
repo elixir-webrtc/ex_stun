@@ -33,7 +33,8 @@ defmodule ExStun.MixProject do
     [
       {:excoveralls, "~> 0.14.6", only: :test, runtime: false},
       {:ex_doc, "~> 0.27", only: :dev, runtime: false},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.2", only: [:dev, :test], runtime: false}
     ]
   end
 end
