@@ -20,6 +20,7 @@ defmodule ExStun.Message do
   """
   use Bitwise
 
+  alias ExStun.Message.Attribute
   alias ExStun.Message.{RawAttribute, Type}
 
   @magic_cookie 0x2112A442
@@ -52,23 +53,27 @@ defmodule ExStun.Message do
   @doc """
   Creates a new STUN message with a random transaction id.
   """
-  @spec new(Type.t()) :: t()
-  def new(%Type{} = type) do
-    %__MODULE__{
-      type: type,
-      transaction_id: new_transaction_id()
-    }
+  @spec new(Type.t(), [Attribute.t()]) :: t()
+  def new(%Type{} = type, attributes \\ []) do
+    do_new(new_transaction_id(), type, attributes)
   end
 
   @doc """
   Creates a new STUN message.
   """
-  @spec new(integer(), Type.t()) :: t()
-  def new(transaction_id, %Type{} = type) do
-    %__MODULE__{
+  @spec new(integer(), Type.t(), [Attribute.t()]) :: t()
+  def new(transaction_id, %Type{} = type, attributes) do
+    do_new(transaction_id, type, attributes)
+  end
+
+  defp do_new(tid, %Type{} = type, attributes) do
+    msg = %__MODULE__{
       type: type,
-      transaction_id: transaction_id
+      transaction_id: tid
     }
+
+    raw_attributes = Enum.map(attributes, &Attribute.to_raw_attribute(&1, msg))
+    %__MODULE__{msg | attributes: raw_attributes}
   end
 
   @doc """

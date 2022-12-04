@@ -17,12 +17,6 @@ defmodule ExStun.Message.Attribute.MessageIntegrity do
   @enforce_keys [:value]
   defstruct @enforce_keys
 
-  @spec add_to_message(t(), Message.t()) :: Message.t()
-  def add_to_message(%__MODULE__{value: value}, message) do
-    raw_attribute = %RawAttribute{type: @attr_type, value: value}
-    Message.add_attribute(message, raw_attribute)
-  end
-
   @spec get_from_message(Message.t()) :: {:ok, t()} | {:error, :invalid_message_integrity} | nil
   def get_from_message(%Message{} = message) do
     case Message.get_attribute(message, @attr_type) do
@@ -36,4 +30,15 @@ defmodule ExStun.Message.Attribute.MessageIntegrity do
   end
 
   defp decode(_data), do: {:error, :invalid_message_integrity}
+end
+
+defimpl ExStun.Message.Attribute, for: ExStun.Message.Attribute.MessageIntegrity do
+  alias ExStun.Message.Attribute.MessageIntegrity
+  alias ExStun.Message.RawAttribute
+
+  @attr_type 0x0008
+
+  def to_raw_attribute(%MessageIntegrity{value: value}, _msg) do
+    %RawAttribute{type: @attr_type, value: value}
+  end
 end
