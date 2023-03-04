@@ -46,11 +46,12 @@ defmodule ExStun.Message.Attribute.XORMappedAddress do
     with {:ok, family} <- decode_family(family),
          {:ok, port} <- decode_port(x_port),
          {:ok, address} <- decode_address(x_address, message) do
-      %__MODULE__{
-        family: family,
-        port: port,
-        address: address
-      }
+      {:ok,
+       %__MODULE__{
+         family: family,
+         port: port,
+         address: address
+       }}
     end
   end
 
