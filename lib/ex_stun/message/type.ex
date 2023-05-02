@@ -12,7 +12,7 @@ defmodule ExStun.Message.Type do
    Figure 3: Format of STUN Message Type Field
   ```
   """
-  use Bitwise
+  import Bitwise
 
   alias ExStun.Message.{Class, Method}
 

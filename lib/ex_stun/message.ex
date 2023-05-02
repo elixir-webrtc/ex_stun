@@ -18,9 +18,8 @@ defmodule ExStun.Message do
                   Figure 2: Format of STUN Message Header
   ```
   """
-  use Bitwise
-
   alias ExStun.Message.Attribute
+  alias ExStun.Message.Attribute.{MessageIntegrity, Realm, Username}
   alias ExStun.Message.{RawAttribute, Type}
 
   @magic_cookie 0x2112A442
@@ -44,11 +43,12 @@ defmodule ExStun.Message do
           type: Type.t(),
           transaction_id: integer(),
           attributes: [RawAttribute.t()],
+          len_to_int: integer(),
           raw: binary()
         }
 
   @enforce_keys [:type, :transaction_id]
-  defstruct @enforce_keys ++ [attributes: [], raw: <<>>]
+  defstruct @enforce_keys ++ [attributes: [], len_to_int: 0, raw: <<>>]
 
   @doc """
   Creates a new STUN message with a random transaction id.
@@ -90,6 +90,24 @@ defmodule ExStun.Message do
   end
 
   @doc """
+  Encodes a STUN message adding message integrity attribute.
+
+  `key` is the key used for calculating message integrity
+  and can be obtained from `authenticate/2`.
+  """
+  def encode_with_int(message, key) do
+    text = encode(message)
+
+    <<pre::binary-size(2), length::16, post::binary>> = text
+    length = length + 24
+    text = <<pre::binary, length::16, post::binary>>
+    mac = :crypto.mac(:hmac, :sha, key, text)
+    integrity = %MessageIntegrity{value: mac}
+    raw_integrity = ExStun.Message.Attribute.to_raw_attribute(integrity, message)
+    add_attribute(message, raw_integrity) |> encode()
+  end
+
+  @doc """
   Decodes a binary into a STUN message.
   """
   @spec decode(binary()) :: {:ok, t()} | {:error, decode_error_t()}
@@ -104,12 +122,13 @@ defmodule ExStun.Message do
           attributes::binary>> = msg
       ) do
     with {:ok, type} <- Type.from_value(type),
-         {:ok, attributes} <- decode_attributes(attributes) do
+         {:ok, len_to_int, attributes} <- decode_attributes(attributes) do
       {:ok,
        %__MODULE__{
          type: type,
          transaction_id: transaction_id,
          attributes: attributes,
+         len_to_int: len_to_int,
          raw: msg
        }}
     end
@@ -145,6 +164,37 @@ defmodule ExStun.Message do
     Enum.filter(message.attributes, &(&1.type == attr_type))
   end
 
+  @doc """
+  Authenticates message.
+
+  Password depends on the STUN authentication method and has to
+  be provided from the outside.
+  """
+  @spec authenticate(t(), binary()) :: {:ok, binary()} | :error
+  def authenticate(msg, password) do
+    {:ok, msg_int} = MessageIntegrity.get_from_message(msg)
+    {:ok, %Username{value: username}} = Username.get_from_message(msg)
+    {:ok, %Realm{value: realm}} = Realm.get_from_message(msg)
+
+    key = username <> ":" <> realm <> ":" <> password
+    key = :crypto.hash(:md5, key)
+
+    # + 20 for STUN message header
+    # - 24 for message integrity
+    len = msg.len_to_int + 20 - 24
+    <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
+    <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
+    msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
+
+    mac = :crypto.mac(:hmac, :sha, key, msg_without_integrity)
+
+    if mac == msg_int.value do
+      {:ok, key}
+    else
+      :error
+    end
+  end
+
   defp new_transaction_id() do
     <<t_id::12*8>> = :crypto.strong_rand_bytes(12)
     t_id
@@ -158,13 +208,18 @@ defmodule ExStun.Message do
     end
   end
 
-  defp decode_attributes(attributes, acc \\ [])
+  defp decode_attributes(attributes, acc \\ {0, false, []})
 
-  defp decode_attributes(<<>>, acc), do: {:ok, acc}
+  defp decode_attributes(<<>>, {_len_to_int, false, attrs}), do: {:ok, 0, attrs}
+  defp decode_attributes(<<>>, {len_to_int, true, attrs}), do: {:ok, len_to_int, attrs}
 
-  defp decode_attributes(attributes, acc) do
-    with {:ok, attr, rest} <- decode_next_attr(attributes) do
-      decode_attributes(rest, acc ++ [attr])
+  defp decode_attributes(raw_attrs, {len_to_int, found_int, dec_attrs}) do
+    with {:ok, attr, len, is_int, rest} <- decode_next_attr(raw_attrs) do
+      if found_int do
+        decode_attributes(rest, {len_to_int, found_int, dec_attrs ++ [attr]})
+      else
+        decode_attributes(rest, {len_to_int + len, is_int, dec_attrs ++ [attr]})
+      end
     end
   end
 
@@ -174,7 +229,8 @@ defmodule ExStun.Message do
 
     with {:ok, rest} <- strip_padding(rest, padding_len) do
       attr = %RawAttribute{type: type, value: value}
-      {:ok, attr, rest}
+      # 0x0008 is message integrity
+      {:ok, attr, len + padding_len + 4, type == 0x0008, rest}
     end
   end
 
