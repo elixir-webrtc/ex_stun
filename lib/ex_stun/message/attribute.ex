@@ -30,4 +30,6 @@ defmodule ExSTUN.Message.Attribute do
   """
   @callback from_raw(raw_attribute :: RawAttribute.t(), message :: Message.t()) ::
               {:ok, struct()} | {:error, atom()}
+
+  @optional_callbacks type: 0, to_raw: 2, from_raw: 2
 end
