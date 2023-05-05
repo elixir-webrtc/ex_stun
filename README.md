@@ -1,4 +1,4 @@
-# ExStun
+# ExSTUN
 
 [![codecov](https://codecov.io/gh/elixir-webrtc/ex_stun/branch/master/graph/badge.svg?token=7FJ64MDD0J)](https://codecov.io/gh/elixir-webrtc/ex_stun)
 

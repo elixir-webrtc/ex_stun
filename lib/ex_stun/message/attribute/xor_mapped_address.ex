@@ -1,4 +1,4 @@
-defmodule ExStun.Message.Attribute.XORMappedAddress do
+defmodule ExSTUN.Message.Attribute.XORMappedAddress do
   @moduledoc """
   STUN Message Attribute XOR Mapped Address
 
@@ -15,8 +15,10 @@ defmodule ExStun.Message.Attribute.XORMappedAddress do
   ```
   """
   import Bitwise
-  alias ExStun.Message
-  alias ExStun.Message.RawAttribute
+  alias ExSTUN.Message
+  alias ExSTUN.Message.RawAttribute
+
+  @behaviour ExSTUN.Message.Attribute
 
   @attr_type 0x0020
   @magic_cookie 0x2112A442
@@ -30,16 +32,18 @@ defmodule ExStun.Message.Attribute.XORMappedAddress do
   @enforce_keys [:family, :port, :address]
   defstruct @enforce_keys
 
-  @spec get_from_message(Message.t()) ::
-          {:ok, t()}
-          | {:error, :not_enough_data | :invalid_family | :invalid_port | :invalid_address}
-          | nil
-  def get_from_message(message) do
-    case Message.get_attribute(message, @attr_type) do
-      nil -> nil
-      raw_attr -> decode(raw_attr.value, message)
-    end
+  @impl true
+  def from_raw(%RawAttribute{value: value}, %Message{} = msg) do
+    decode(value, msg)
   end
+
+  @impl true
+  def to_raw(%__MODULE__{} = xor_addr, %Message{} = msg) do
+    %RawAttribute{type: @attr_type, value: encode(xor_addr, msg)}
+  end
+
+  @impl true
+  def type(), do: @attr_type
 
   defp decode(<<0, family::8, x_port::16, x_address::binary>>, message)
        when byte_size(x_address) in [4, 16] do
@@ -77,41 +81,7 @@ defmodule ExStun.Message.Attribute.XORMappedAddress do
 
   defp decode_address(_other, _message), do: {:error, :invalid_address}
 
-  def bxor_address({a, b, c, d}) do
-    a = bxor(a, @magic_cookie >>> 24 &&& 0b11111111)
-    b = bxor(b, @magic_cookie >>> 16 &&& 0b11111111)
-    c = bxor(c, @magic_cookie >>> 8 &&& 0b11111111)
-    d = bxor(d, @magic_cookie &&& 0b11111111)
-    {a, b, c, d}
-  end
-
-  def bxor_address({a, b, c, d, e, f, g, h}, cookie_trans_id) do
-    x_a = bxor(a, cookie_trans_id >>> 112 &&& 0b11111111)
-    x_b = bxor(b, cookie_trans_id >>> 96 &&& 0b11111111)
-    x_c = bxor(c, cookie_trans_id >>> 80 &&& 0b11111111)
-    x_d = bxor(d, cookie_trans_id >>> 64 &&& 0b11111111)
-    x_e = bxor(e, cookie_trans_id >>> 48 &&& 0b11111111)
-    x_f = bxor(f, cookie_trans_id >>> 32 &&& 0b11111111)
-    x_g = bxor(g, cookie_trans_id >>> 16 &&& 0b11111111)
-    x_h = bxor(h, cookie_trans_id &&& 0b11111111)
-    {x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h}
-  end
-end
-
-defimpl ExStun.Message.Attribute, for: ExStun.Message.Attribute.XORMappedAddress do
-  alias ExStun.Message.Attribute.XORMappedAddress
-  alias ExStun.Message.RawAttribute
-
-  import Bitwise
-
-  @attr_type 0x0020
-  @magic_cookie 0x2112A442
-
-  def to_raw_attribute(%XORMappedAddress{} = attr, msg) do
-    %RawAttribute{type: @attr_type, value: encode(attr, msg)}
-  end
-
-  defp encode(%XORMappedAddress{} = xor_address, message) do
+  defp encode(%__MODULE__{} = xor_address, message) do
     <<cookie_trans_id::128>> = <<@magic_cookie::32, message.transaction_id::96>>
 
     family =
@@ -125,16 +95,36 @@ defimpl ExStun.Message.Attribute, for: ExStun.Message.Attribute.XORMappedAddress
     x_address =
       cond do
         :inet.is_ipv4_address(xor_address.address) ->
-          {x_a, x_b, x_c, x_d} = XORMappedAddress.bxor_address(xor_address.address)
+          {x_a, x_b, x_c, x_d} = bxor_address(xor_address.address)
           <<x_a, x_b, x_c, x_d>>
 
         :inet.is_ipv6_address(xor_address.address) ->
           {x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h} =
-            XORMappedAddress.bxor_address(xor_address.address, cookie_trans_id)
+            bxor_address(xor_address.address, cookie_trans_id)
 
           <<x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h>>
       end
 
     <<0, family, x_port::16, x_address::binary>>
+  end
+
+  defp bxor_address({a, b, c, d}) do
+    a = bxor(a, @magic_cookie >>> 24 &&& 0b11111111)
+    b = bxor(b, @magic_cookie >>> 16 &&& 0b11111111)
+    c = bxor(c, @magic_cookie >>> 8 &&& 0b11111111)
+    d = bxor(d, @magic_cookie &&& 0b11111111)
+    {a, b, c, d}
+  end
+
+  defp bxor_address({a, b, c, d, e, f, g, h}, cookie_trans_id) do
+    x_a = bxor(a, cookie_trans_id >>> 112 &&& 0b11111111)
+    x_b = bxor(b, cookie_trans_id >>> 96 &&& 0b11111111)
+    x_c = bxor(c, cookie_trans_id >>> 80 &&& 0b11111111)
+    x_d = bxor(d, cookie_trans_id >>> 64 &&& 0b11111111)
+    x_e = bxor(e, cookie_trans_id >>> 48 &&& 0b11111111)
+    x_f = bxor(f, cookie_trans_id >>> 32 &&& 0b11111111)
+    x_g = bxor(g, cookie_trans_id >>> 16 &&& 0b11111111)
+    x_h = bxor(h, cookie_trans_id &&& 0b11111111)
+    {x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h}
   end
 end

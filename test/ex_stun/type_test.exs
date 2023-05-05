@@ -1,7 +1,7 @@
-defmodule ExStun.Message.TypeTest do
+defmodule ExSTUN.Message.TypeTest do
   use ExUnit.Case
 
-  alias ExStun.Message.Type
+  alias ExSTUN.Message.Type
 
   test "Type.to_value/1 converts type to integer correctly" do
     type = %Type{class: :request, method: :binding}
@@ -17,7 +17,7 @@ defmodule ExStun.Message.TypeTest do
   end
 
   test "Type.from_value/1 returns error for incorrect integer" do
-    use Bitwise
+    import Bitwise
 
     # out of range
     assert {:error, :malformed_type} = Type.from_value(2 <<< 14)

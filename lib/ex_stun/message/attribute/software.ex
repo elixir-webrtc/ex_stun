@@ -1,15 +1,15 @@
-defmodule ExSTUN.Message.Attribute.MessageIntegrity do
+defmodule ExSTUN.Message.Attribute.Software do
   @moduledoc """
-  STUN Message Attribute Message-Integrity
+  STUN Message Attribute Software
   """
   alias ExSTUN.Message.RawAttribute
 
   @behaviour ExSTUN.Message.Attribute
 
-  # max message integrity size in bytes
-  @max_message_integrity_size 20
+  # max username size in bytes
+  @max_software_size 763
 
-  @attr_type 0x0008
+  @attr_type 0x8022
 
   @type t() :: %__MODULE__{
           value: binary()
@@ -31,9 +31,9 @@ defmodule ExSTUN.Message.Attribute.MessageIntegrity do
     %RawAttribute{type: @attr_type, value: value}
   end
 
-  defp decode(data) when is_binary(data) and byte_size(data) <= @max_message_integrity_size do
+  defp decode(data) when is_binary(data) and byte_size(data) < @max_software_size do
     {:ok, %__MODULE__{value: data}}
   end
 
-  defp decode(_data), do: {:error, :invalid_message_integrity}
+  defp decode(_data), do: {:error, :invalid_software}
 end

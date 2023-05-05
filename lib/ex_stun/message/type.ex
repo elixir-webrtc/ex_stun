@@ -1,4 +1,4 @@
-defmodule ExStun.Message.Type do
+defmodule ExSTUN.Message.Type do
   @moduledoc """
   STUN Message Type
 
@@ -14,7 +14,7 @@ defmodule ExStun.Message.Type do
   """
   import Bitwise
 
-  alias ExStun.Message.{Class, Method}
+  alias ExSTUN.Message.{Class, Method}
 
   @type t() :: %__MODULE__{
           class: Class.t(),

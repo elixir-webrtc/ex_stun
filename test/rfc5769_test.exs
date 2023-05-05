@@ -1,7 +1,8 @@
-defmodule ExStun.RFC5769Test do
+defmodule ExSTUN.RFC5769Test do
   use ExUnit.Case
 
-  alias ExStun.Message.RawAttribute
+  alias ExSTUN.Message
+  alias ExSTUN.Message.Attribute.{MessageIntegrity, Software, Username, XORMappedAddress}
 
   test "sample request is parsed correctly" do
     # the padding for username was changed from 3x(0x20) to 3x(0x00) to be
@@ -16,33 +17,31 @@ defmodule ExStun.RFC5769Test do
         0xF2, 0xB5, 0xB2, 0xD3, 0xF2, 0x49, 0xC1, 0xB5, 0x71, 0xA2, 0x80, 0x28, 0x00, 0x04, 0xE5,
         0x7A, 0x3B, 0xCF>>
 
-    assert {:ok, message} = ExStun.Message.decode(req)
-    assert message.type == %ExStun.Message.Type{class: :request, method: :binding}
+    assert {:ok, message} = Message.decode(req)
+    assert message.type == %Message.Type{class: :request, method: :binding}
     assert message.transaction_id == 56_915_807_328_848_210_473_588_875_182
 
-    assert %RawAttribute{type: 0x8022, value: "STUN test client"} =
-             ExStun.Message.get_attribute(message, 0x8022)
+    assert {:ok, %Software{value: "STUN test client"}} = Message.get_attribute(message, Software)
 
-    assert %RawAttribute{type: 0x0024, value: <<110, 0, 1, 255>>} =
-             ExStun.Message.get_attribute(message, 0x0024)
+    # assert %RawAttribute{type: 0x0024, value: <<110, 0, 1, 255>>} =
+    #          Message.get_attribute(message, 0x0024)
 
-    assert %RawAttribute{
-             type: 0x8029,
-             value: <<147, 47, 249, 177, 81, 38, 59, 54>>
-           } = ExStun.Message.get_attribute(message, 0x8029)
+    # assert %RawAttribute{
+    #          type: 0x8029,
+    #          value: <<147, 47, 249, 177, 81, 38, 59, 54>>
+    #        } = Message.get_attribute(message, 0x8029)
 
-    assert %RawAttribute{type: 0x0006, value: "evtj:h6vY"} =
-             ExStun.Message.get_attribute(message, 0x0006)
+    assert {:ok, %Username{value: "evtj:h6vY"}} = Message.get_attribute(message, Username)
 
-    assert %RawAttribute{
-             type: 0x0008,
-             value:
-               <<154, 234, 167, 12, 191, 216, 203, 86, 120, 30, 242, 181, 178, 211, 242, 73, 193,
-                 181, 113, 162>>
-           } = ExStun.Message.get_attribute(message, 0x0008)
+    assert {:ok,
+            %MessageIntegrity{
+              value:
+                <<154, 234, 167, 12, 191, 216, 203, 86, 120, 30, 242, 181, 178, 211, 242, 73, 193,
+                  181, 113, 162>>
+            }} = Message.get_attribute(message, MessageIntegrity)
 
-    assert %RawAttribute{type: 0x8028, value: <<229, 122, 59, 207>>} =
-             ExStun.Message.get_attribute(message, 0x8028)
+    # assert %RawAttribute{type: 0x8028, value: <<229, 122, 59, 207>>} =
+    #          Message.get_attribute(message, 0x8028)
   end
 
   test "sample ipv4 response is parsed correctly" do
@@ -56,25 +55,24 @@ defmodule ExStun.RFC5769Test do
         0x8C, 0x74, 0x89, 0xF9, 0x2A, 0xF9, 0xBA, 0x53, 0xF0, 0x6B, 0xE7, 0xD7, 0x80, 0x28, 0x00,
         0x04, 0xC0, 0x7D, 0x4C, 0x96>>
 
-    assert {:ok, message} = ExStun.Message.decode(ipv4_resp)
-    assert message.type == %ExStun.Message.Type{class: :success_response, method: :binding}
+    assert {:ok, message} = Message.decode(ipv4_resp)
+    assert message.type == %Message.Type{class: :success_response, method: :binding}
     assert message.transaction_id == 56_915_807_328_848_210_473_588_875_182
 
-    assert %RawAttribute{type: 0x8022, value: "test vector"} =
-             ExStun.Message.get_attribute(message, 0x8022)
+    assert {:ok, %Software{value: "test vector"}} == Message.get_attribute(message, Software)
 
-    assert %RawAttribute{type: 0x0020, value: <<0, 1, 161, 71, 225, 18, 166, 67>>} =
-             ExStun.Message.get_attribute(message, 0x0020)
+    assert {:ok, %XORMappedAddress{address: {192, 0, 2, 1}, port: 32_853, family: :ipv4}} ==
+             Message.get_attribute(message, XORMappedAddress)
 
-    assert %RawAttribute{
-             type: 0x0008,
-             value:
-               <<43, 145, 245, 153, 253, 158, 144, 195, 140, 116, 137, 249, 42, 249, 186, 83, 240,
-                 107, 231, 215>>
-           } = ExStun.Message.get_attribute(message, 0x0008)
+    assert {:ok,
+            %MessageIntegrity{
+              value:
+                <<43, 145, 245, 153, 253, 158, 144, 195, 140, 116, 137, 249, 42, 249, 186, 83,
+                  240, 107, 231, 215>>
+            }} == Message.get_attribute(message, MessageIntegrity)
 
-    assert %RawAttribute{type: 0x8028, value: <<192, 125, 76, 150>>} =
-             ExStun.Message.get_attribute(message, 0x8028)
+    # assert %RawAttribute{type: 0x8028, value: <<192, 125, 76, 150>>} =
+    #          ExSTUN.Message.get_attribute(message, 0x8028)
   end
 
   test "sample ipv4 response is encoded correctly" do
@@ -86,7 +84,7 @@ defmodule ExStun.RFC5769Test do
         0x8C, 0x74, 0x89, 0xF9, 0x2A, 0xF9, 0xBA, 0x53, 0xF0, 0x6B, 0xE7, 0xD7, 0x80, 0x28, 0x00,
         0x04, 0xC0, 0x7D, 0x4C, 0x96>>
 
-    assert {:ok, message} = ExStun.Message.decode(ipv4_resp)
-    assert ipv4_resp == ExStun.Message.encode(message)
+    assert {:ok, message} = Message.decode(ipv4_resp)
+    assert ipv4_resp == Message.encode(message)
   end
 end

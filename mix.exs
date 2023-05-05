@@ -1,4 +1,4 @@
-defmodule ExStun.MixProject do
+defmodule ExSTUN.MixProject do
   use Mix.Project
 
   def project do

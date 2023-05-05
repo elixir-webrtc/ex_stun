@@ -1,4 +1,4 @@
-defmodule ExStun.Message.RawAttribute do
+defmodule ExSTUN.Message.RawAttribute do
   @moduledoc """
   STUN Message Attribute
 

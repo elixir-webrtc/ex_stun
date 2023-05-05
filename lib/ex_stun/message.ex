@@ -1,4 +1,4 @@
-defmodule ExStun.Message do
+defmodule ExSTUN.Message do
   @moduledoc """
   STUN Message
 
@@ -18,9 +18,8 @@ defmodule ExStun.Message do
                   Figure 2: Format of STUN Message Header
   ```
   """
-  alias ExStun.Message.Attribute
-  alias ExStun.Message.Attribute.{MessageIntegrity, Realm, Username}
-  alias ExStun.Message.{RawAttribute, Type}
+  alias ExSTUN.Message.Attribute.{MessageIntegrity, Realm, Username}
+  alias ExSTUN.Message.{RawAttribute, Type}
 
   @magic_cookie 0x2112A442
 
@@ -53,7 +52,7 @@ defmodule ExStun.Message do
   @doc """
   Creates a new STUN message with a random transaction id.
   """
-  @spec new(Type.t(), [Attribute.t()]) :: t()
+  @spec new(Type.t(), [struct()]) :: t()
   def new(%Type{} = type, attributes \\ []) do
     do_new(new_transaction_id(), type, attributes)
   end
@@ -61,7 +60,7 @@ defmodule ExStun.Message do
   @doc """
   Creates a new STUN message.
   """
-  @spec new(integer(), Type.t(), [Attribute.t()]) :: t()
+  @spec new(integer(), Type.t(), [struct()]) :: t()
   def new(transaction_id, %Type{} = type, attributes) do
     do_new(transaction_id, type, attributes)
   end
@@ -72,7 +71,7 @@ defmodule ExStun.Message do
       transaction_id: tid
     }
 
-    raw_attributes = Enum.map(attributes, &Attribute.to_raw_attribute(&1, msg))
+    raw_attributes = Enum.map(attributes, fn %attr_mod{} = attr -> attr_mod.to_raw(attr, msg) end)
     %__MODULE__{msg | attributes: raw_attributes}
   end
 
@@ -103,7 +102,7 @@ defmodule ExStun.Message do
     text = <<pre::binary, length::16, post::binary>>
     mac = :crypto.mac(:hmac, :sha, key, text)
     integrity = %MessageIntegrity{value: mac}
-    raw_integrity = ExStun.Message.Attribute.to_raw_attribute(integrity, message)
+    raw_integrity = MessageIntegrity.to_raw(integrity, message)
     add_attribute(message, raw_integrity) |> encode()
   end
 
@@ -147,34 +146,28 @@ defmodule ExStun.Message do
   @doc """
   Gets first attribute of given type from a message.
 
+  `attr_mod` is a module implementing `ExSTUN.Message.Attribute` behaviour.
   Returns `nil` if there is no attribute of given type.
   """
-  @spec get_attribute(t(), non_neg_integer()) :: RawAttribute.t() | nil
-  def get_attribute(message, attr_type) do
-    Enum.find(message.attributes, &(&1.type == attr_type))
+  @spec get_attribute(t(), module()) :: {:ok, struct()} | {:error, atom()} | nil
+  def get_attribute(message, attr_mod) do
+    case Enum.find(message.attributes, &(&1.type == attr_mod.type())) do
+      nil -> nil
+      raw_attr -> attr_mod.from_raw(raw_attr, message)
+    end
   end
 
   @doc """
-  Gets all attributes of given type from a message.
-
-  Returns empty list if there is no attribute of given type.
-  """
-  @spec get_attributes(t(), non_neg_integer()) :: [RawAttribute.t()]
-  def get_attributes(message, attr_type) do
-    Enum.filter(message.attributes, &(&1.type == attr_type))
-  end
-
-  @doc """
-  Authenticates message.
+  Authenticates a message.
 
   Password depends on the STUN authentication method and has to
   be provided from the outside.
   """
   @spec authenticate(t(), binary()) :: {:ok, binary()} | :error
   def authenticate(msg, password) do
-    {:ok, msg_int} = MessageIntegrity.get_from_message(msg)
-    {:ok, %Username{value: username}} = Username.get_from_message(msg)
-    {:ok, %Realm{value: realm}} = Realm.get_from_message(msg)
+    {:ok, %MessageIntegrity{} = msg_int} = get_attribute(msg, MessageIntegrity)
+    {:ok, %Username{value: username}} = get_attribute(msg, Username)
+    {:ok, %Realm{value: realm}} = get_attribute(msg, Realm)
 
     key = username <> ":" <> realm <> ":" <> password
     key = :crypto.hash(:md5, key)

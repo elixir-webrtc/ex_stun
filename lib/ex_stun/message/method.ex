@@ -1,4 +1,4 @@
-defmodule ExStun.Message.Method do
+defmodule ExSTUN.Message.Method do
   @moduledoc """
   STUN Message Method
   """

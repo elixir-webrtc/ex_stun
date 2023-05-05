@@ -1,9 +1,10 @@
-defmodule ExStun.MessageTest do
+defmodule ExSTUN.MessageTest do
   use ExUnit.Case
 
-  alias ExStun.Message
-  alias ExStun.Message.Type
-  alias ExStun.Message.RawAttribute
+  alias ExSTUN.Message
+  alias ExSTUN.Message.Type
+  alias ExSTUN.Message.RawAttribute
+  alias ExSTUN.Message.Attribute.{Realm, Software}
 
   @m_type <<0x01::14>>
   @len <<0x00, 0x58>>
@@ -137,7 +138,7 @@ defmodule ExStun.MessageTest do
       assert {:ok, message} = Message.decode(message)
       assert_message_header(message)
 
-      assert @d_attr = Message.get_attribute(message, @attr_type)
+      assert {:ok, %Software{}} = Message.get_attribute(message, Software)
     end
 
     test "returns first attribute when there are multiple attributes of the same type" do
@@ -147,7 +148,7 @@ defmodule ExStun.MessageTest do
       assert {:ok, message} = Message.decode(message)
       assert_message_header(message)
 
-      assert @d_attr = Message.get_attribute(message, @attr_type)
+      assert {:ok, %Software{}} = Message.get_attribute(message, Software)
     end
 
     test "returns nil when there is no attribute of given type" do
@@ -156,7 +157,7 @@ defmodule ExStun.MessageTest do
       assert {:ok, message} = Message.decode(message)
       assert_message_header(message)
 
-      assert nil == Message.get_attribute(message, 0x8023)
+      assert nil == Message.get_attribute(message, Realm)
     end
 
     test "returns nil when there are no attributes at all" do
@@ -165,46 +166,7 @@ defmodule ExStun.MessageTest do
       assert {:ok, message} = Message.decode(message)
       assert_message_header(message)
 
-      assert nil == Message.get_attribute(message, @attr_type)
-    end
-  end
-
-  describe "Message.get_attributes/2" do
-    test "returns list with one attribute when it is present in a message" do
-      message = <<@header::binary, @attr::binary>>
-
-      assert {:ok, message} = Message.decode(message)
-      assert_message_header(message)
-
-      assert [@d_attr] = Message.get_attributes(message, @attr_type)
-    end
-
-    test "returns all attributes when there are multiple attributes of the same type" do
-      attributes = <<@attr::binary, @attr1::binary, @attr2::binary, @attr3::binary>>
-      message = <<@header::binary, attributes::binary>>
-
-      assert {:ok, message} = Message.decode(message)
-      assert_message_header(message)
-
-      assert [@d_attr, @d_attr1, @d_attr2, @d_attr3] = Message.get_attributes(message, @attr_type)
-    end
-
-    test "returns empty list when there is no attribute of given type" do
-      message = <<@header::binary, @attr::binary>>
-
-      assert {:ok, message} = Message.decode(message)
-      assert_message_header(message)
-
-      assert [] == Message.get_attributes(message, 0x8023)
-    end
-
-    test "returns [] when there are no attributes at all" do
-      message = <<@header::binary>>
-
-      assert {:ok, message} = Message.decode(message)
-      assert_message_header(message)
-
-      assert [] == Message.get_attributes(message, @attr_type)
+      assert nil == Message.get_attribute(message, Software)
     end
   end
 

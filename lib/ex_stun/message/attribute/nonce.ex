@@ -1,9 +1,10 @@
-defmodule ExStun.Message.Attribute.Nonce do
+defmodule ExSTUN.Message.Attribute.Nonce do
   @moduledoc """
   STUN Message Attribute Nonce
   """
-  alias ExStun.Message
-  alias ExStun.Message.RawAttribute
+  alias ExSTUN.Message.RawAttribute
+
+  @behaviour ExSTUN.Message.Attribute
 
   # max nonce size in bytes
   @max_nonce_size 763
@@ -17,12 +18,17 @@ defmodule ExStun.Message.Attribute.Nonce do
   @enforce_keys [:value]
   defstruct @enforce_keys
 
-  @spec get_from_message(Message.t()) :: {:ok, t()} | {:error, :invalid_nonce} | nil
-  def get_from_message(%Message{} = message) do
-    case Message.get_attribute(message, @attr_type) do
-      nil -> nil
-      raw_attr -> decode(raw_attr.value)
-    end
+  @impl true
+  def type(), do: @attr_type
+
+  @impl true
+  def from_raw(%RawAttribute{} = raw_attr, _message) do
+    decode(raw_attr.value)
+  end
+
+  @impl true
+  def to_raw(%__MODULE__{value: value}, _msg) do
+    %RawAttribute{type: @attr_type, value: value}
   end
 
   defp decode(data) when is_binary(data) and byte_size(data) < @max_nonce_size do
@@ -30,15 +36,4 @@ defmodule ExStun.Message.Attribute.Nonce do
   end
 
   defp decode(_data), do: {:error, :invalid_nonce}
-end
-
-defimpl ExStun.Message.Attribute, for: ExStun.Message.Attribute.Nonce do
-  alias ExStun.Message.Attribute.Nonce
-  alias ExStun.Message.RawAttribute
-
-  @attr_type 0x0015
-
-  def to_raw_attribute(%Nonce{value: value}, _msg) do
-    %RawAttribute{type: @attr_type, value: value}
-  end
 end

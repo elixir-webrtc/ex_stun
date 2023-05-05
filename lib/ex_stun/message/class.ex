@@ -1,4 +1,4 @@
-defmodule ExStun.Message.Class do
+defmodule ExSTUN.Message.Class do
   @moduledoc """
   STUN Message Class
   """

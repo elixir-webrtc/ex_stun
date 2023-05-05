@@ -1,8 +1,8 @@
-defmodule ExStun.Message.AttributeTest do
+defmodule ExSTUN.Message.AttributeTest do
   use ExUnit.Case
-  doctest ExStun.Message.RawAttribute
+  doctest ExSTUN.Message.RawAttribute
 
-  alias ExStun.Message.RawAttribute
+  alias ExSTUN.Message.RawAttribute
 
   test "padding is added correctly" do
     attr = %RawAttribute{type: 0x8022, value: "exclient"}
