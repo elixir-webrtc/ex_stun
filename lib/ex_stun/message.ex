@@ -76,7 +76,7 @@ defmodule ExSTUN.Message do
   end
 
   @doc """
-  Encodes a STUN message a into binary.
+  Encodes a STUN message into a binary.
   """
   @spec encode(t()) :: binary()
   def encode(message) do
@@ -160,10 +160,13 @@ defmodule ExSTUN.Message do
   @doc """
   Authenticates a message.
 
-  Password depends on the STUN authentication method and has to
+  `password` depends on the STUN authentication method and has to
   be provided from the outside.
+
+  `key` is a key used for calculating MAC and can be used
+  for adding message integrity in a response. See `encode_with_int/2`.
   """
-  @spec authenticate(t(), binary()) :: {:ok, binary()} | :error
+  @spec authenticate(t(), binary()) :: {:ok, key :: binary()} | :error
   def authenticate(msg, password) do
     {:ok, %MessageIntegrity{} = msg_int} = get_attribute(msg, MessageIntegrity)
     {:ok, %Username{value: username}} = get_attribute(msg, Username)

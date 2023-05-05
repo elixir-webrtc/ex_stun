@@ -1,13 +1,20 @@
 defmodule ExSTUN.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/elixir-webrtc/ex_stun"
+
   def project do
     [
       app: :ex_stun,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+
+      # docs
+      docs: docs(),
+      source_url: @source_url,
 
       # code coverage
       test_coverage: [tool: ExCoveralls],
@@ -35,6 +42,23 @@ defmodule ExSTUN.MixProject do
       {:ex_doc, "~> 0.27", only: :dev, runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.2", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp docs() do
+    [
+      main: "readme",
+      extras: ["README.md"],
+      source_ref: "v#{@version}",
+      formatters: ["html"],
+      nest_modules_by_prefix: [
+        ExSTUN.Message.Attribute
+      ],
+      groups_for_modules: [
+        Attributes: [
+          ~r/ExSTUN\.Message\.Attribute\./
+        ]
+      ]
     ]
   end
 end

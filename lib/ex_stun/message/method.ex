@@ -15,7 +15,7 @@ defmodule ExSTUN.Message.Method do
   @doc """
   Converts method from an atom into an integer.
   """
-  @spec to_value(t()) :: 0x01
+  @spec to_value(t()) :: integer()
   def to_value(method)
 
   def to_value(:binding), do: 0x01
