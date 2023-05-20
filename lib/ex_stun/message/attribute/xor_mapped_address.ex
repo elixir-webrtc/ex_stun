@@ -93,16 +93,14 @@ defmodule ExSTUN.Message.Attribute.XORMappedAddress do
     x_port = bxor(xor_address.port, @magic_cookie >>> 16)
 
     x_address =
-      cond do
-        :inet.is_ipv4_address(xor_address.address) ->
-          {x_a, x_b, x_c, x_d} = bxor_address(xor_address.address)
-          <<x_a, x_b, x_c, x_d>>
+      case xor_address.address do
+        {_, _, _, _} ->
+          bxor_address(xor_address.address)
+          |> to_binary()
 
-        :inet.is_ipv6_address(xor_address.address) ->
-          {x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h} =
-            bxor_address(xor_address.address, cookie_trans_id)
-
-          <<x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h>>
+        {_, _, _, _, _, _, _, _} ->
+          bxor_address(xor_address.address, cookie_trans_id)
+          |> to_binary()
       end
 
     <<0, family, x_port::16, x_address::binary>>
@@ -127,4 +125,7 @@ defmodule ExSTUN.Message.Attribute.XORMappedAddress do
     x_h = bxor(h, cookie_trans_id &&& 0b11111111)
     {x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h}
   end
+
+  defp to_binary({a, b, c, d}), do: <<a, b, c, d>>
+  defp to_binary({a, b, c, d, e, f, g, h}), do: <<a, b, c, d, e, f, g, h>>
 end
