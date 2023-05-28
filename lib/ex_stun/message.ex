@@ -158,7 +158,7 @@ defmodule ExSTUN.Message do
   end
 
   @doc """
-  Authenticates a message.
+  Authenticates a message long-term mechanism.
 
   `password` depends on the STUN authentication method and has to
   be provided from the outside.
@@ -166,8 +166,8 @@ defmodule ExSTUN.Message do
   `key` is a key used for calculating MAC and can be used
   for adding message integrity in a response. See `encode_with_int/2`.
   """
-  @spec authenticate(t(), binary()) :: {:ok, key :: binary()} | :error
-  def authenticate(msg, password) do
+  @spec authenticate_lt(t(), binary()) :: {:ok, key :: binary()} | :error
+  def authenticate_lt(msg, password) do
     {:ok, %MessageIntegrity{} = msg_int} = get_attribute(msg, MessageIntegrity)
     {:ok, %Username{value: username}} = get_attribute(msg, Username)
     {:ok, %Realm{value: realm}} = get_attribute(msg, Realm)
@@ -188,6 +188,39 @@ defmodule ExSTUN.Message do
       {:ok, key}
     else
       :error
+    end
+  end
+
+  @doc """
+  Authenticates a message using short-term mechanism.
+
+  `key` is a key used for calculating MAC and can be used
+  for adding message integrity in a response. See `encode_with_int/2`.
+  """
+  @spec authenticate_st(t(), binary(), binary()) :: {:ok, key :: binary()} | :error
+  def authenticate_st(msg, username, password) do
+    {:ok, %MessageIntegrity{} = msg_int} = get_attribute(msg, MessageIntegrity)
+    {:ok, %Username{value: msg_username}} = get_attribute(msg, Username)
+
+    if username != msg_username do
+      :error
+    else
+      key = password
+
+      # + 20 for STUN message header
+      # - 24 for message integrity
+      len = msg.len_to_int + 20 - 24
+      <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
+      <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
+      msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
+
+      mac = :crypto.mac(:hmac, :sha, key, msg_without_integrity)
+
+      if mac == msg_int.value do
+        {:ok, key}
+      else
+        :error
+      end
     end
   end
 
