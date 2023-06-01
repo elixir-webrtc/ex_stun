@@ -170,6 +170,23 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
+  describe "Message.encode" do
+    test "short-term message integrity" do
+      key = "somekey"
+      username = "someuser"
+
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([%Message.Attribute.Username{value: username}])
+        |> Message.with_integrity(key)
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      {:ok, ^key} = Message.authenticate_st(decoded, username, key)
+    end
+  end
+
   defp assert_message_header(message) do
     assert message.type == %Type{class: :request, method: :binding}
     assert message.transaction_id == 56_915_807_328_848_210_473_588_875_182

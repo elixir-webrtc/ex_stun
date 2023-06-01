@@ -18,6 +18,7 @@ defmodule ExSTUN.Message do
                   Figure 2: Format of STUN Message Header
   ```
   """
+  alias ExSTUN.Message.Attribute.Fingerprint
   alias ExSTUN.Message.Attribute.{MessageIntegrity, Realm, Username}
   alias ExSTUN.Message.{RawAttribute, Type}
 
@@ -43,11 +44,20 @@ defmodule ExSTUN.Message do
           transaction_id: integer(),
           attributes: [RawAttribute.t()],
           len_to_int: integer(),
-          raw: binary()
+          raw: binary(),
+          integrity: {boolean(), binary()},
+          fingerprint: boolean()
         }
 
   @enforce_keys [:type, :transaction_id]
-  defstruct @enforce_keys ++ [attributes: [], len_to_int: 0, raw: <<>>]
+  defstruct @enforce_keys ++
+              [
+                attributes: [],
+                len_to_int: 0,
+                raw: <<>>,
+                integrity: {false, <<>>},
+                fingerprint: false
+              ]
 
   @doc """
   Creates a new STUN message with a random transaction id.
@@ -75,6 +85,16 @@ defmodule ExSTUN.Message do
     %__MODULE__{msg | attributes: raw_attributes}
   end
 
+  @spec with_integrity(t(), binary()) :: t()
+  def with_integrity(%__MODULE__{} = msg, key) do
+    %__MODULE__{msg | integrity: {true, key}}
+  end
+
+  @spec with_fingerprint(t()) :: t()
+  def with_fingerprint(%__MODULE__{} = msg) do
+    %__MODULE__{msg | fingerprint: true}
+  end
+
   @doc """
   Encodes a STUN message into a binary.
   """
@@ -84,26 +104,40 @@ defmodule ExSTUN.Message do
     attributes = encode_attributes(message.attributes)
     length = byte_size(attributes)
 
-    <<0::1, 0::1, type::14, length::16, @magic_cookie::32, message.transaction_id::96,
-      attributes::binary>>
+    raw =
+      <<0::1, 0::1, type::14, length::16, @magic_cookie::32, message.transaction_id::96,
+        attributes::binary>>
+
+    message = %__MODULE__{message | raw: raw}
+
+    message =
+      case message.integrity do
+        {false, _} -> message
+        {true, key} -> add_integrity(message, key)
+      end
+
+    message = if message.fingerprint, do: add_fingerprint(message), else: message
+    message.raw
   end
 
-  @doc """
-  Encodes a STUN message adding message integrity attribute.
-
-  `key` is the key used for calculating message integrity
-  and can be obtained from `authenticate/2`.
-  """
-  def encode_with_int(message, key) do
-    text = encode(message)
-
-    <<pre::binary-size(2), length::16, post::binary>> = text
-    length = length + 24
+  defp add_integrity(msg, key) do
+    <<pre::binary-size(2), length::16, post::binary>> = msg.raw
+    length = length + 20 + 4
     text = <<pre::binary, length::16, post::binary>>
     mac = :crypto.mac(:hmac, :sha, key, text)
     integrity = %MessageIntegrity{value: mac}
-    raw_integrity = MessageIntegrity.to_raw(integrity, message)
-    add_attribute(message, raw_integrity) |> encode()
+    raw_integrity = MessageIntegrity.to_raw(integrity, msg) |> RawAttribute.encode()
+    %__MODULE__{msg | raw: <<text::binary, raw_integrity::binary>>}
+  end
+
+  defp add_fingerprint(msg) do
+    <<pre::binary-size(2), length::16, post::binary>> = msg.raw
+    length = length + 4 + 4
+    text = <<pre::binary, length::16, post::binary>>
+    crc = :erlang.crc32(text)
+    fingerprint = %Fingerprint{value: crc}
+    raw_fingerprint = Fingerprint.to_raw(fingerprint, msg) |> RawAttribute.encode()
+    %__MODULE__{msg | raw: <<text::binary, raw_fingerprint::binary>>}
   end
 
   @doc """
@@ -209,7 +243,7 @@ defmodule ExSTUN.Message do
 
       # + 20 for STUN message header
       # - 24 for message integrity
-      len = msg.len_to_int + 20 - 24
+      len = msg.len_to_int + 20 - (20 + 4)
       <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
       <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
       msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
@@ -222,6 +256,16 @@ defmodule ExSTUN.Message do
         :error
       end
     end
+  end
+
+  @spec check_fingerprint(t()) :: boolean()
+  def check_fingerprint(%__MODULE__{} = msg) do
+    {:ok, %Fingerprint{} = fingerprint} = get_attribute(msg, Fingerprint)
+    len = byte_size(msg.raw) - (4 + 4)
+    <<msg_without_fingerprint::binary-size(len), _rest::binary>> = msg.raw
+    crc = :erlang.crc32(msg_without_fingerprint)
+
+    crc == fingerprint.value
   end
 
   defp new_transaction_id() do
@@ -237,17 +281,44 @@ defmodule ExSTUN.Message do
     end
   end
 
-  defp decode_attributes(attributes, acc \\ {0, false, []})
+  # acc - {len to int, int seen?, fingerprint seen?, attrs acc}
+  defp decode_attributes(attributes, acc \\ {0, false, false, []})
 
-  defp decode_attributes(<<>>, {_len_to_int, false, attrs}), do: {:ok, 0, attrs}
-  defp decode_attributes(<<>>, {len_to_int, true, attrs}), do: {:ok, len_to_int, attrs}
+  defp decode_attributes(<<>>, {len_to_int, _int_seen, true, attrs}), do: {:ok, len_to_int, attrs}
 
-  defp decode_attributes(raw_attrs, {len_to_int, found_int, dec_attrs}) do
-    with {:ok, attr, len, is_int, rest} <- decode_next_attr(raw_attrs) do
-      if found_int do
-        decode_attributes(rest, {len_to_int, found_int, dec_attrs ++ [attr]})
-      else
-        decode_attributes(rest, {len_to_int + len, is_int, dec_attrs ++ [attr]})
+  defp decode_attributes(_raw_attrs, {_len_to_int, _int_seen, true, _attrs}),
+    do: {:error, :data_after_fingerprint}
+
+  defp decode_attributes(<<>>, {_len_to_int, false, false, attrs}),
+    do: {:ok, 0, attrs}
+
+  defp decode_attributes(<<>>, {len_to_int, true, false, attrs}),
+    do: {:ok, len_to_int, attrs}
+
+  defp decode_attributes(raw_attrs, {len_to_int, true, false, attrs}) do
+    case decode_next_attr(raw_attrs) do
+      {:ok, attr, _len, _is_int, true, rest} ->
+        decode_attributes(rest, {len_to_int, true, true, attrs ++ [attr]})
+
+      {:ok, _attr, _len, _is_int, false, _rest} ->
+        {:ok, len_to_int, attrs}
+
+      error ->
+        error
+    end
+  end
+
+  defp decode_attributes(raw_attrs, {len_to_int, false, false, attrs}) do
+    with {:ok, attr, len, is_int, is_fingerprint, rest} <- decode_next_attr(raw_attrs) do
+      case {is_int, is_fingerprint} do
+        {true, false} ->
+          decode_attributes(rest, {len_to_int + len, true, false, attrs ++ [attr]})
+
+        {false, true} ->
+          decode_attributes(rest, {0, false, true, attrs ++ [attr]})
+
+        {false, false} ->
+          decode_attributes(rest, {len_to_int + len, false, false, attrs ++ [attr]})
       end
     end
   end
@@ -259,7 +330,8 @@ defmodule ExSTUN.Message do
     with {:ok, rest} <- strip_padding(rest, padding_len) do
       attr = %RawAttribute{type: type, value: value}
       # 0x0008 is message integrity
-      {:ok, attr, len + padding_len + 4, type == 0x0008, rest}
+      # 0x8028 is fingerprint
+      {:ok, attr, len + padding_len + 4, type == 0x0008, type == 0x8028, rest}
     end
   end
 
