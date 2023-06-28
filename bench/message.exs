@@ -6,6 +6,7 @@ alias ExSTUN.Message.Type
 # **IMPORTANT**
 # 1. we don't use predefined structs in some benchmarks
 # as we want to count in a time needed for struct creation
+# e.g software_to_raw, error_to_raw, etc.
 # 2. keep fixtures used in "decode" benchmarks the same
 # as corresponding things in "encode" benchmarks
 # 3. "decode" benchmarks don't decode RawAttribute into
@@ -21,80 +22,65 @@ fix_st_key = "somekey"
 fix_type = %Type{class: :success_response, method: :binding}
 fix_type_value = Type.to_value(fix_type)
 fix_m = Message.new(fix_t_id, fix_type, [])
-fix_xor_addr = %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
-fix_raw_xor_addr = XORMappedAddress.to_raw(fix_xor_addr, fix_m)
-fix_raw_error_code = ErrorCode.to_raw(%ErrorCode{code: 438, reason: "Stale Nonce"}, fix_m)
-fix_raw_software = Software.to_raw(%Software{value: "software"}, fix_m)
 
-{:ok, fix_full_message} =
+full_msg_enc = fn key ->
   Message.new(fix_t_id, fix_type, [
     %Username{value: "someusername"},
     %Realm{value: "somerealm"},
     %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
   ])
-  |> Message.with_integrity(fix_st_key)
+  |> Message.with_integrity(key)
   |> Message.with_fingerprint()
   |> Message.encode()
-  |> Message.decode()
+end
 
-{:ok, fix_full_lt_message} =
-  Message.new(fix_t_id, fix_type, [
-    %Username{value: "someusername"},
-    %Realm{value: "somerealm"},
-    %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
-  ])
-  |> Message.with_integrity(fix_lt_key)
-  |> Message.with_fingerprint()
-  |> Message.encode()
-  |> Message.decode()
-
-fix_enc_full_message = Message.encode(fix_full_message)
-
-fix_enc_binding_request =
+binding_request_enc = fn ->
   %Type{class: :request, method: :binding}
   |> Message.new()
   |> Message.encode()
+end
 
-fix_enc_binding_response =
+binding_response_enc = fn ->
   Message.new(fix_t_id, fix_type, [
     %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
   ])
   |> Message.encode()
+end
+
+xor_addr_to_raw = fn ->
+  XORMappedAddress.to_raw(
+    %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234},
+    fix_m
+  )
+end
+
+software_to_raw = fn ->
+  Software.to_raw(%Software{value: "software"}, fix_m)
+end
+
+error_code_to_raw = fn ->
+  ErrorCode.to_raw(%ErrorCode{code: 438, reason: "Stale Nonce"}, fix_m)
+end
+
+{:ok, fix_full_message} = full_msg_enc.(fix_st_key) |> Message.decode()
+{:ok, fix_full_lt_message} = full_msg_enc.(fix_lt_key) |> Message.decode()
+fix_enc_full_message = full_msg_enc.(fix_st_key)
+
+fix_enc_binding_request = binding_request_enc.()
+fix_enc_binding_response = binding_response_enc.()
+
+fix_raw_software = software_to_raw.()
+fix_raw_error_code = error_code_to_raw.()
+fix_raw_xor_addr = xor_addr_to_raw.()
 
 Benchee.run(
   %{
-    "binding_request.encode" => fn ->
-      %Type{class: :request, method: :binding}
-      |> Message.new()
-      |> Message.encode()
-    end,
-    "binding_request.decode" => fn ->
-      {:ok, _} = Message.decode(fix_enc_binding_request)
-    end,
-    "binding_response.encode" => fn ->
-      # we don't use fix_xor_mapped_address here
-      # as we want to count in time needed for struct creation
-      Message.new(fix_t_id, %Type{class: :success_response, method: :binding}, [
-        %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
-      ])
-      |> Message.encode()
-    end,
-    "binding_response.decode" => fn ->
-      {:ok, _} = Message.decode(fix_enc_binding_response)
-    end,
-    "message_full.encode" => fn ->
-      Message.new(fix_t_id, %Type{class: :success_response, method: :binding}, [
-        %Username{value: "someusername"},
-        %Realm{value: "somerealm"},
-        %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
-      ])
-      |> Message.with_integrity(fix_st_key)
-      |> Message.with_fingerprint()
-      |> Message.encode()
-    end,
-    "message_full.decode" => fn ->
-      {:ok, _} = Message.decode(fix_enc_full_message)
-    end,
+    "binding_request.encode" => fn -> binding_request_enc.() end,
+    "binding_request.decode" => fn -> {:ok, _} = Message.decode(fix_enc_binding_request) end,
+    "binding_response.encode" => fn -> binding_response_enc.() end,
+    "binding_response.decode" => fn -> {:ok, _} = Message.decode(fix_enc_binding_response) end,
+    "message_full.encode" => fn -> full_msg_enc.(fix_st_key) end,
+    "message_full.decode" => fn -> {:ok, _} = Message.decode(fix_enc_full_message) end,
     "message_full.authenticate_st" => fn ->
       {:ok, _} = Message.authenticate_st(fix_full_message, "someusername", fix_st_key)
     end,
@@ -108,30 +94,13 @@ Benchee.run(
     "type.to_value" => fn ->
       Type.to_value(%Type{class: :success_response, method: :binding})
     end,
-    "type.from_value" => fn ->
-      {:ok, _} = Type.from_value(fix_type_value)
-    end,
-    "raw_attr.encode" => fn ->
-      RawAttribute.encode(fix_raw_xor_addr)
-    end,
-    "error_code.to_raw" => fn ->
-      ErrorCode.to_raw(%ErrorCode{code: 438, reason: "Stale Nonce"}, fix_m)
-    end,
-    "error_code.from_raw" => fn ->
-      {:ok, _} = ErrorCode.from_raw(fix_raw_error_code, fix_m)
-    end,
-    "software.to_raw" => fn ->
-      Software.to_raw(%Software{value: "software"}, fix_m)
-    end,
-    "software.from_raw" => fn ->
-      {:ok, _} = Software.from_raw(fix_raw_software, fix_m)
-    end,
-    "xor_mapped_address.to_raw" => fn ->
-      XORMappedAddress.to_raw(
-        %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234},
-        fix_m
-      )
-    end,
+    "type.from_value" => fn -> {:ok, _} = Type.from_value(fix_type_value) end,
+    "raw_attr.encode" => fn -> RawAttribute.encode(fix_raw_xor_addr) end,
+    "error_code.to_raw" => fn -> nil end,
+    "error_code.from_raw" => fn -> {:ok, _} = ErrorCode.from_raw(fix_raw_error_code, fix_m) end,
+    "software.to_raw" => fn -> software_to_raw.() end,
+    "software.from_raw" => fn -> {:ok, _} = Software.from_raw(fix_raw_software, fix_m) end,
+    "xor_mapped_address.to_raw" => fn -> xor_addr_to_raw.() end,
     "xor_mapped_address.from_raw" => fn ->
       {:ok, _} = XORMappedAddress.from_raw(fix_raw_xor_addr, fix_m)
     end
