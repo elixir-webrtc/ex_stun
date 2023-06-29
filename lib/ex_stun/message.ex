@@ -30,6 +30,7 @@ defmodule ExSTUN.Message do
   * `:not_enough_data` - provided binary is less than 20 bytes
   * `:malformed_header` - improper message header e.g. invalid cookie
   * `:unknown_method` - unknown message type method
+  * `:data_after_finderprint` - fingerprint attribute is followed by other forbidden attributes
   * `:malformed_attr_padding` - one or more attributes are not followed by
   long enough padding or padding is not 0.
   """
@@ -37,6 +38,7 @@ defmodule ExSTUN.Message do
           :not_enough_data
           | :malformed_header
           | :malformed_type
+          | :data_after_fingerprint
           | :malformed_attr_padding
 
   @type t() :: %__MODULE__{
@@ -228,33 +230,29 @@ defmodule ExSTUN.Message do
   @doc """
   Authenticates a message using short-term mechanism.
 
+  It is assumed that username attribute of this message is valid.
+
   `key` is a key used for calculating MAC and can be used
   for adding message integrity in a response. See `with_integrity/2`.
   """
-  @spec authenticate_st(t(), binary(), binary()) :: {:ok, key :: binary()} | :error
-  def authenticate_st(msg, username, password) do
+  @spec authenticate_st(t(), binary()) :: {:ok, key :: binary()} | :error
+  def authenticate_st(msg, password) do
     {:ok, %MessageIntegrity{} = msg_int} = get_attribute(msg, MessageIntegrity)
-    {:ok, %Username{value: msg_username}} = get_attribute(msg, Username)
 
-    if username != msg_username do
-      :error
+    # + 20 for STUN message header
+    # - 24 for message integrity
+    len = msg.len_to_int + 20 - (20 + 4)
+    <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
+    <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
+    msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
+
+    # in short-term authentication key == password
+    mac = :crypto.mac(:hmac, :sha, password, msg_without_integrity)
+
+    if mac == msg_int.value do
+      {:ok, password}
     else
-      key = password
-
-      # + 20 for STUN message header
-      # - 24 for message integrity
-      len = msg.len_to_int + 20 - (20 + 4)
-      <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
-      <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
-      msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
-
-      mac = :crypto.mac(:hmac, :sha, key, msg_without_integrity)
-
-      if mac == msg_int.value do
-        {:ok, key}
-      else
-        :error
-      end
+      :error
     end
   end
 

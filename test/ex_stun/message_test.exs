@@ -4,7 +4,7 @@ defmodule ExSTUN.MessageTest do
   alias ExSTUN.Message
   alias ExSTUN.Message.Type
   alias ExSTUN.Message.RawAttribute
-  alias ExSTUN.Message.Attribute.{Realm, Software}
+  alias ExSTUN.Message.Attribute.{Realm, Software, Username}
 
   @m_type <<0x01::14>>
   @len <<0x00, 0x58>>
@@ -182,8 +182,10 @@ defmodule ExSTUN.MessageTest do
         |> Message.encode()
 
       {:ok, %Message{} = decoded} = Message.decode(encoded)
+      {:ok, username_attr} = Message.get_attribute(decoded, Username)
 
-      {:ok, ^key} = Message.authenticate_st(decoded, username, key)
+      assert username == username_attr.value
+      assert {:ok, ^key} = Message.authenticate_st(decoded, key)
     end
   end
 
