@@ -198,7 +198,7 @@ defmodule ExSTUN.Message do
   be provided from the outside.
 
   `key` is a key used for calculating MAC and can be used
-  for adding message integrity in a response. See `encode_with_int/2`.
+  for adding message integrity in a response. See `with_integrity/2`.
   """
   @spec authenticate_lt(t(), binary()) :: {:ok, key :: binary()} | :error
   def authenticate_lt(msg, password) do
@@ -229,7 +229,7 @@ defmodule ExSTUN.Message do
   Authenticates a message using short-term mechanism.
 
   `key` is a key used for calculating MAC and can be used
-  for adding message integrity in a response. See `encode_with_int/2`.
+  for adding message integrity in a response. See `with_integrity/2`.
   """
   @spec authenticate_st(t(), binary(), binary()) :: {:ok, key :: binary()} | :error
   def authenticate_st(msg, username, password) do
