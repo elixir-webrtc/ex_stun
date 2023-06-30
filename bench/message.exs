@@ -27,7 +27,7 @@ full_msg_enc = fn key ->
   Message.new(fix_t_id, fix_type, [
     %Username{value: "someusername"},
     %Realm{value: "somerealm"},
-    %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
+    %XORMappedAddress{address: {127, 0, 0, 1}, port: 1234}
   ])
   |> Message.with_integrity(key)
   |> Message.with_fingerprint()
@@ -41,17 +41,12 @@ binding_request_enc = fn ->
 end
 
 binding_response_enc = fn ->
-  Message.new(fix_t_id, fix_type, [
-    %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234}
-  ])
+  Message.new(fix_t_id, fix_type, [%XORMappedAddress{address: {127, 0, 0, 1}, port: 1234}])
   |> Message.encode()
 end
 
 xor_addr_to_raw = fn ->
-  XORMappedAddress.to_raw(
-    %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 1234},
-    fix_m
-  )
+  XORMappedAddress.to_raw(%XORMappedAddress{address: {127, 0, 0, 1}, port: 1234}, fix_m)
 end
 
 software_to_raw = fn ->
