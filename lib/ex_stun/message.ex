@@ -18,6 +18,7 @@ defmodule ExSTUN.Message do
                   Figure 2: Format of STUN Message Header
   ```
   """
+  import Bitwise
   alias ExSTUN.Message.Attribute.Fingerprint
   alias ExSTUN.Message.Attribute.{MessageIntegrity, Realm, Username}
   alias ExSTUN.Message.{RawAttribute, Type}
@@ -137,7 +138,7 @@ defmodule ExSTUN.Message do
     length = length + 4 + 4
     text = <<pre::binary, length::16, post::binary>>
     crc = :erlang.crc32(text)
-    fingerprint = %Fingerprint{value: crc}
+    fingerprint = %Fingerprint{value: bxor(crc, 0x5354554E)}
     raw_fingerprint = Fingerprint.to_raw(fingerprint, msg) |> RawAttribute.encode()
     %__MODULE__{msg | raw: <<text::binary, raw_fingerprint::binary>>}
   end
