@@ -24,12 +24,11 @@ defmodule ExSTUN.Message.Attribute.XORMappedAddress do
   @magic_cookie 0x2112A442
 
   @type t() :: %__MODULE__{
-          family: :ipv4 | :ipv6,
           port: 0..65_535,
           address: :inet.ip_address()
         }
 
-  @enforce_keys [:family, :port, :address]
+  @enforce_keys [:port, :address]
   defstruct @enforce_keys
 
   @impl true
@@ -50,12 +49,15 @@ defmodule ExSTUN.Message.Attribute.XORMappedAddress do
     with {:ok, family} <- decode_family(family),
          {:ok, port} <- decode_port(x_port),
          {:ok, address} <- decode_address(x_address, message) do
-      {:ok,
-       %__MODULE__{
-         family: family,
-         port: port,
-         address: address
-       }}
+      if family == family(address) do
+        {:ok,
+         %__MODULE__{
+           port: port,
+           address: address
+         }}
+      else
+        {:error, :invalid_family}
+      end
     end
   end
 
@@ -85,7 +87,7 @@ defmodule ExSTUN.Message.Attribute.XORMappedAddress do
     <<cookie_trans_id::128>> = <<@magic_cookie::32, message.transaction_id::96>>
 
     family =
-      case xor_address.family do
+      case family(xor_address.address) do
         :ipv4 -> 0x01
         :ipv6 -> 0x02
       end
@@ -127,5 +129,10 @@ defmodule ExSTUN.Message.Attribute.XORMappedAddress do
   end
 
   defp to_binary({a, b, c, d}), do: <<a, b, c, d>>
-  defp to_binary({a, b, c, d, e, f, g, h}), do: <<a, b, c, d, e, f, g, h>>
+
+  defp to_binary({a, b, c, d, e, f, g, h}),
+    do: <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>>
+
+  defp family({_, _, _, _}), do: :ipv4
+  defp family({_, _, _, _, _, _, _, _}), do: :ipv6
 end
