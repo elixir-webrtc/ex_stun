@@ -24,6 +24,7 @@ defmodule ExSTUN.Message do
   alias ExSTUN.Message.{RawAttribute, Type}
 
   @magic_cookie 0x2112A442
+  @fingerprint_xor_val 0x5354554E
 
   @typedoc """
   Possible `decode/1` error reasons.
@@ -138,7 +139,7 @@ defmodule ExSTUN.Message do
     length = length + 4 + 4
     text = <<pre::binary, length::16, post::binary>>
     crc = :erlang.crc32(text)
-    fingerprint = %Fingerprint{value: bxor(crc, 0x5354554E)}
+    fingerprint = %Fingerprint{value: bxor(crc, @fingerprint_xor_val)}
     raw_fingerprint = Fingerprint.to_raw(fingerprint, msg) |> RawAttribute.encode()
     %__MODULE__{msg | raw: <<text::binary, raw_fingerprint::binary>>}
   end
@@ -264,7 +265,7 @@ defmodule ExSTUN.Message do
     <<msg_without_fingerprint::binary-size(len), _rest::binary>> = msg.raw
     crc = :erlang.crc32(msg_without_fingerprint)
 
-    crc == fingerprint.value
+    bxor(crc, @fingerprint_xor_val) == fingerprint.value
   end
 
   defp new_transaction_id() do
