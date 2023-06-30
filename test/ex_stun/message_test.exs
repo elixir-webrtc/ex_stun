@@ -32,6 +32,42 @@ defmodule ExSTUN.MessageTest do
   @d_attr2 %RawAttribute{type: @attr_type, value: "STUN test client11"}
   @d_attr3 %RawAttribute{type: @attr_type, value: "STUN test client111"}
 
+  describe "Message.new" do
+    setup do
+      %{type: %Type{class: :request, method: :bindinf}}
+    end
+
+    test "creates valid message", %{type: type} do
+      message = Message.new(type)
+
+      assert %Message{
+               type: ^type,
+               transaction_id: t_id,
+               attributes: []
+             } = message
+
+      assert is_integer(t_id)
+    end
+
+    test "creates message with attributed", %{type: type} do
+      value = "attribute value"
+      message = Message.new(type, [%Software{value: value}])
+
+      assert %Message{
+               attributes: [%RawAttribute{type: @attr_type, value: ^value}]
+             } = message
+    end
+
+    test "creates message with custom transaction id", %{type: type} do
+      t_id = "custom id"
+      message = Message.new(t_id, type, [])
+
+      assert %Message{
+               transaction_id: ^t_id
+             } = message
+    end
+  end
+
   describe "Message.decode/1" do
     test "decodes message without attributes correctly" do
       message = <<@header::binary>>
@@ -170,14 +206,28 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
-  describe "Message.encode" do
-    test "short-term message integrity" do
+  describe "Message.encode/1" do
+    test "correctly encodes message header" do
+    end
+
+    test "adds fingerprint if requested" do
+    end
+
+    test "adds message integrity if requested" do
+    end
+
+    test "encodes attributes in a valid order" do
+    end
+  end
+
+  describe "Message.authenticate_st/2" do
+    test "works properly with a valid key" do
       key = "somekey"
       username = "someuser"
 
       encoded =
         %Message.Type{class: :request, method: :binding}
-        |> Message.new([%Message.Attribute.Username{value: username}])
+        |> Message.new([%Username{value: username}])
         |> Message.with_integrity(key)
         |> Message.encode()
 
@@ -186,6 +236,96 @@ defmodule ExSTUN.MessageTest do
 
       assert username == username_attr.value
       assert {:ok, ^key} = Message.authenticate_st(decoded, key)
+    end
+
+    test "fails on invalid key" do
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([%Username{value: "username"}])
+        |> Message.with_integrity("somekey")
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      assert :error = Message.authenticate_st(decoded, "invalidkey")
+    end
+  end
+
+  describe "Message.authenticate_lt/2" do
+    test "works properly with valid credentials" do
+      username = "someuser"
+      password = "somepassword"
+      realm = "somerealm"
+
+      key = username <> ":" <> realm <> ":" <> password
+      key = :crypto.hash(:md5, key)
+
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([
+          %Username{value: username},
+          %Realm{value: realm}
+        ])
+        |> Message.with_integrity(key)
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+      {:ok, username_attr} = Message.get_attribute(decoded, Username)
+
+      assert username == username_attr.value
+      {:ok, ^key} = Message.authenticate_lt(decoded, password)
+    end
+
+    test "fails on invalid credentials" do
+      username = "someuser"
+      realm = "somerealm"
+
+      key = username <> ":" <> realm <> ":" <> "somepassowrd"
+      key = :crypto.hash(:md5, key)
+
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([
+          %Username{value: username},
+          %Realm{value: realm}
+        ])
+        |> Message.with_integrity(key)
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      assert :error = Message.authenticate_lt(decoded, "invalidpassword")
+    end
+  end
+
+  describe "Message.check_fingerprint/1" do
+    test "returns `true` on valid fingerprint" do
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new()
+        |> Message.with_fingerprint()
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      assert Message.check_fingerprint(decoded)
+    end
+
+    test "fails on invalid fingerprint" do
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new()
+        |> Message.with_fingerprint()
+        |> Message.encode()
+
+      # modify transaction_id to malform the message
+      <<begining::binary-size(8), t_id::96, rest::binary>> = encoded
+      t_id = t_id + 1
+      encoded = <<begining::binary, t_id::96, rest::binary>>
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+      assert decoded.transaction_id == t_id
+      assert Message.check_fingerprint(decoded) == false
     end
   end
 
