@@ -61,7 +61,7 @@ defmodule ExSTUN.RFC5769Test do
 
     assert {:ok, %Software{value: "test vector"}} == Message.get_attribute(message, Software)
 
-    assert {:ok, %XORMappedAddress{address: {192, 0, 2, 1}, port: 32_853, family: :ipv4}} ==
+    assert {:ok, %XORMappedAddress{address: {192, 0, 2, 1}, port: 32_853}} ==
              Message.get_attribute(message, XORMappedAddress)
 
     assert {:ok,
