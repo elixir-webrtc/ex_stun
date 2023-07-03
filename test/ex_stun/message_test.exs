@@ -1,6 +1,7 @@
 defmodule ExSTUN.MessageTest do
   use ExUnit.Case
 
+  import Bitwise
   alias ExSTUN.Message
   alias ExSTUN.Message.Type
   alias ExSTUN.Message.RawAttribute
@@ -149,6 +150,37 @@ defmodule ExSTUN.MessageTest do
 
       assert {:error, :malformed_attr_padding} = Message.decode(message)
     end
+
+    test "returns an error when there's data after fingerprint" do
+      # this is not a valid fingerprint, but that does not matter here
+      fingerprint = <<0x80, 0x28, 4::16, 0::32>>
+      attributes = <<fingerprint::binary, @attr::binary>>
+
+      header =
+        <<0::1, 0::1, @m_type::bitstring, byte_size(attributes)::16, @cookie::binary,
+          @transaction_id::binary>>
+
+      msg = <<header::binary, attributes::binary>>
+
+      assert {:error, :data_after_fingerprint} = Message.decode(msg)
+    end
+
+    test "ignores appropriate attributes after message integrity" do
+      # this is not a valid message integrity, but that does not matter here
+      msg_int = <<0x00, 0x08, 4::16, 0::32>>
+      attributes = <<msg_int::binary, @attr::binary>>
+
+      header =
+        <<0::1, 0::1, @m_type::bitstring, byte_size(attributes)::16, @cookie::binary,
+          @transaction_id::binary>>
+
+      msg = <<header::binary, attributes::binary>>
+
+      assert {:ok, message} = Message.decode(msg)
+      assert_message_header(message)
+
+      assert [%RawAttribute{type: 8}] = message.attributes
+    end
   end
 
   describe "Message.add_attribute/2" do
@@ -207,16 +239,85 @@ defmodule ExSTUN.MessageTest do
   end
 
   describe "Message.encode/1" do
-    test "correctly encodes message header" do
+    test "correctly encodes the message header and an attribute" do
+      <<t_id::96>> = @transaction_id
+      # length of attribute = attribute header + attribute in bytes
+      # length padded to 32 bits
+      attr = %Software{value: <<0::32>>}
+      attr_len = 8
+
+      msg =
+        %Message.Type{class: :request, method: :binding}
+        |> then(&Message.new(t_id, &1, [attr]))
+        |> Message.encode()
+
+      assert <<
+               0::2,
+               @m_type::bitstring,
+               ^attr_len::16,
+               @cookie::binary,
+               @transaction_id::binary,
+               attr_bin::binary
+             >> = msg
+
+      assert byte_size(attr_bin) == attr_len
     end
 
-    test "adds fingerprint if requested" do
+    test "adds valid fingerprint if requested" do
+      msg =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new()
+        |> Message.with_fingerprint()
+        |> Message.encode()
+
+      <<start::binary-size(20), _attr_header::32, msg_fp::32>> = msg
+      valid_fp = bxor(:erlang.crc32(start), 0x5354554E)
+
+      assert msg_fp == valid_fp
     end
 
-    test "adds message integrity if requested" do
+    test "adds message integrity" do
+      key = "somepassword"
+
+      # normally this message would contain the username or realm attributes
+      # but it's not necessary to test the message integrity
+      msg =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new()
+        |> Message.with_integrity(key)
+        |> Message.encode()
+
+      <<start::binary-size(20), _attr_header::32, msg_it::binary>> = msg
+      mac = :crypto.mac(:hmac, :sha, key, start)
+
+      assert msg_it == mac
     end
 
     test "encodes attributes in a valid order" do
+      msg =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([%Software{value: <<0::32>>}])
+        |> Message.with_fingerprint()
+        |> Message.with_integrity("somekey")
+        |> Message.encode()
+
+      <<
+        _header::binary-size(20),
+        attr_type_1::16,
+        _attr_len_1::16,
+        _attr_1::binary-size(4),
+        attr_type_2::16,
+        _attr_len_2::16,
+        _attr_2::binary-size(20),
+        attr_type_3::16,
+        _attr_len_3::16,
+        _attr_3::binary
+      >> = msg
+
+      # first Software, then Message Integrity, then Fingerprint
+      assert attr_type_1 == 0x8022
+      assert attr_type_2 == 0x0008
+      assert attr_type_3 == 0x8028
     end
   end
 
