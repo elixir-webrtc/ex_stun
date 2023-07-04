@@ -75,7 +75,7 @@ defmodule ExSTUN.Message do
   Creates a new STUN message.
   """
   @spec new(integer(), Type.t(), [struct()]) :: t()
-  def new(transaction_id, %Type{} = type, attributes) do
+  def new(transaction_id, %Type{} = type, attributes) when is_integer(transaction_id) do
     do_new(transaction_id, type, attributes)
   end
 

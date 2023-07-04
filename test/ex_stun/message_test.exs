@@ -33,51 +33,39 @@ defmodule ExSTUN.MessageTest do
   @d_attr2 %RawAttribute{type: @attr_type, value: "STUN test client11"}
   @d_attr3 %RawAttribute{type: @attr_type, value: "STUN test client111"}
 
-  describe "Message.new" do
-    setup do
-      %{type: %Type{class: :request, method: :bindinf}}
-    end
+  test "new/1 and new/2" do
+    type = %Type{class: :request, method: :binding}
 
-    test "creates valid message", %{type: type} do
-      message = Message.new(type)
+    assert %Message{
+             type: ^type,
+             transaction_id: t_id,
+             attributes: []
+           } = Message.new(type)
 
-      assert %Message{
-               type: ^type,
-               transaction_id: t_id,
-               attributes: []
-             } = message
+    assert is_integer(t_id)
 
-      assert is_integer(t_id)
-    end
+    value = "somevalue"
 
-    test "creates message with attributed", %{type: type} do
-      value = "attribute value"
-      message = Message.new(type, [%Software{value: value}])
+    assert %Message{
+             attributes: [%RawAttribute{type: @attr_type, value: ^value}]
+           } = Message.new(type, [%Software{value: value}])
 
-      assert %Message{
-               attributes: [%RawAttribute{type: @attr_type, value: ^value}]
-             } = message
-    end
+    t_id = 123
 
-    test "creates message with custom transaction id", %{type: type} do
-      t_id = "custom id"
-      message = Message.new(t_id, type, [])
-
-      assert %Message{
-               transaction_id: ^t_id
-             } = message
-    end
+    assert %Message{
+             transaction_id: ^t_id
+           } = Message.new(t_id, type, [])
   end
 
-  describe "Message.decode/1" do
-    test "decodes message without attributes correctly" do
+  describe "decode/1" do
+    test "message without attributes" do
       message = <<@header::binary>>
 
       assert {:ok, message} = Message.decode(message)
       assert_message_header(message)
     end
 
-    test "decodes message with one attribute correctly" do
+    test "message with one attribute" do
       message = <<@header::binary, @attr::binary>>
 
       assert {:ok, message} = Message.decode(message)
@@ -85,7 +73,7 @@ defmodule ExSTUN.MessageTest do
       assert message.attributes == [@d_attr]
     end
 
-    test "decodes message with multiple attributes correctly" do
+    test "message with multiple attributes" do
       message = <<@header::binary, @attr::binary, @attr::binary>>
 
       assert {:ok, message} = Message.decode(message)
@@ -94,7 +82,7 @@ defmodule ExSTUN.MessageTest do
       assert message.attributes == [@d_attr, @d_attr]
     end
 
-    test "decodes message with mutliple attributes of different paddings correctly" do
+    test "message with mutliple attributes of different paddings" do
       attributes = <<@attr::binary, @attr1::binary, @attr2::binary, @attr3::binary>>
       message = <<@header::binary, attributes::binary>>
 
@@ -104,12 +92,12 @@ defmodule ExSTUN.MessageTest do
       assert message.attributes == [@d_attr, @d_attr1, @d_attr2, @d_attr3]
     end
 
-    test "returns an error when data is less than 20 bytes" do
+    test "less than 20 bytes of data" do
       assert {:error, :not_enough_data} = Message.decode(<<>>)
       assert {:error, :not_enough_data} = Message.decode(gen_bin(19))
     end
 
-    test "returns an error when header is malformed" do
+    test "message with malformed header" do
       # the last byte of magic cookie has been modified
       invalid_cookie = <<0x21, 0x12, 0xA4, 0x43>>
 
@@ -126,7 +114,7 @@ defmodule ExSTUN.MessageTest do
       assert {:error, :malformed_header} = Message.decode(message)
     end
 
-    test "returns an error when attribute has wrong length" do
+    test "attributes with wrong length" do
       # software attribute
       # length greater than attribute value
       attr_header = <<0x80, 0x22, 0x00, 0x10>>
@@ -142,7 +130,7 @@ defmodule ExSTUN.MessageTest do
       assert {:error, :malformed_attribute} = Message.decode(message)
     end
 
-    test "returns an error when attribute has wrong padding" do
+    test "attributes with wrong padding" do
       # software attribute
       attr_header = <<0x80, 0x22, 0x00, 0x0B>>
       attr = "test client"
@@ -151,7 +139,7 @@ defmodule ExSTUN.MessageTest do
       assert {:error, :malformed_attr_padding} = Message.decode(message)
     end
 
-    test "returns an error when there's data after fingerprint" do
+    test "data after fingerprint" do
       # this is not a valid fingerprint, but that does not matter here
       fingerprint = <<0x80, 0x28, 4::16, 0::32>>
       attributes = <<fingerprint::binary, @attr::binary>>
@@ -165,7 +153,7 @@ defmodule ExSTUN.MessageTest do
       assert {:error, :data_after_fingerprint} = Message.decode(msg)
     end
 
-    test "ignores appropriate attributes after message integrity" do
+    test "attributes after message integrity" do
       # this is not a valid message integrity, but that does not matter here
       msg_int = <<0x00, 0x08, 4::16, 0::32>>
       attributes = <<msg_int::binary, @attr::binary>>
@@ -183,8 +171,8 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
-  describe "Message.add_attribute/2" do
-    test "adds attribute to a message correctly" do
+  describe "add_attribute/2" do
+    test "valid attribute" do
       message = Message.new(%Type{class: :request, method: :binding})
       message = Message.add_attribute(message, @d_attr)
       assert message.attributes == [@d_attr]
@@ -193,14 +181,14 @@ defmodule ExSTUN.MessageTest do
       assert message.attributes == [@d_attr, @d_attr1]
     end
 
-    test "raises when trying to add attribute of type different than t:Attribute.t/0" do
+    test "attribute different than t:Attribute.t/0" do
       message = Message.new(%Type{class: :request, method: :binding})
       assert_raise FunctionClauseError, fn -> Message.add_attribute(message, 1) end
     end
   end
 
-  describe "Message.get_attribute/2" do
-    test "returns attribute when it is present in a message" do
+  describe "get_attribute/2" do
+    test "message with expected attribute" do
       message = <<@header::binary, @attr::binary>>
 
       assert {:ok, message} = Message.decode(message)
@@ -209,7 +197,7 @@ defmodule ExSTUN.MessageTest do
       assert {:ok, %Software{}} = Message.get_attribute(message, Software)
     end
 
-    test "returns first attribute when there are multiple attributes of the same type" do
+    test "multiple attributes of the same type" do
       attributes = <<@attr::binary, @attr1::binary, @attr2::binary, @attr3::binary>>
       message = <<@header::binary, attributes::binary>>
 
@@ -219,7 +207,7 @@ defmodule ExSTUN.MessageTest do
       assert {:ok, %Software{}} = Message.get_attribute(message, Software)
     end
 
-    test "returns nil when there is no attribute of given type" do
+    test "no attribute of given type" do
       message = <<@header::binary, @attr::binary>>
 
       assert {:ok, message} = Message.decode(message)
@@ -228,7 +216,7 @@ defmodule ExSTUN.MessageTest do
       assert nil == Message.get_attribute(message, Realm)
     end
 
-    test "returns nil when there are no attributes at all" do
+    test "no attributes" do
       message = <<@header::binary>>
 
       assert {:ok, message} = Message.decode(message)
@@ -238,8 +226,8 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
-  describe "Message.encode/1" do
-    test "correctly encodes the message header and an attribute" do
+  describe "encode/1" do
+    test "message with 1 attribute" do
       <<t_id::96>> = @transaction_id
       # length of attribute = attribute header + attribute in bytes
       # length padded to 32 bits
@@ -263,7 +251,7 @@ defmodule ExSTUN.MessageTest do
       assert byte_size(attr_bin) == attr_len
     end
 
-    test "adds valid fingerprint if requested" do
+    test "message with fingerprint" do
       msg =
         %Message.Type{class: :request, method: :binding}
         |> Message.new()
@@ -276,7 +264,7 @@ defmodule ExSTUN.MessageTest do
       assert msg_fp == valid_fp
     end
 
-    test "adds message integrity" do
+    test "message with message-integrity" do
       key = "somepassword"
 
       # normally this message would contain the username or realm attributes
@@ -287,13 +275,13 @@ defmodule ExSTUN.MessageTest do
         |> Message.with_integrity(key)
         |> Message.encode()
 
-      <<start::binary-size(20), _attr_header::32, msg_it::binary>> = msg
+      <<start::binary-size(20), _attr_header::32, msg_int::binary>> = msg
       mac = :crypto.mac(:hmac, :sha, key, start)
 
-      assert msg_it == mac
+      assert msg_int == mac
     end
 
-    test "encodes attributes in a valid order" do
+    test "proper order of attributes" do
       msg =
         %Message.Type{class: :request, method: :binding}
         |> Message.new([%Software{value: <<0::32>>}])
@@ -321,8 +309,8 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
-  describe "Message.authenticate_st/2" do
-    test "works properly with a valid key" do
+  describe "authenticate_st/2" do
+    test "valid key" do
       key = "somekey"
       username = "someuser"
 
@@ -339,7 +327,7 @@ defmodule ExSTUN.MessageTest do
       assert {:ok, ^key} = Message.authenticate_st(decoded, key)
     end
 
-    test "fails on invalid key" do
+    test "invalid key" do
       encoded =
         %Message.Type{class: :request, method: :binding}
         |> Message.new([%Username{value: "username"}])
@@ -352,8 +340,8 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
-  describe "Message.authenticate_lt/2" do
-    test "works properly with valid credentials" do
+  describe "authenticate_lt/2" do
+    test "valid credentials" do
       username = "someuser"
       password = "somepassword"
       realm = "somerealm"
@@ -377,7 +365,7 @@ defmodule ExSTUN.MessageTest do
       {:ok, ^key} = Message.authenticate_lt(decoded, password)
     end
 
-    test "fails on invalid credentials" do
+    test "invalid credentials" do
       username = "someuser"
       realm = "somerealm"
 
@@ -399,8 +387,8 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
-  describe "Message.check_fingerprint/1" do
-    test "returns `true` on valid fingerprint" do
+  describe "check_fingerprint/1" do
+    test "valid fingerprint" do
       encoded =
         %Message.Type{class: :request, method: :binding}
         |> Message.new()
@@ -412,7 +400,7 @@ defmodule ExSTUN.MessageTest do
       assert Message.check_fingerprint(decoded)
     end
 
-    test "fails on invalid fingerprint" do
+    test "invalid fingerprint" do
       encoded =
         %Message.Type{class: :request, method: :binding}
         |> Message.new()
