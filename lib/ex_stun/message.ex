@@ -160,6 +160,7 @@ defmodule ExSTUN.Message do
       ) do
     with {:ok, type} <- Type.from_value(type),
          {:ok, len_to_int, attributes} <- decode_attributes(attributes) do
+      # len_to_int = length from beggining of the first attribute to end of message integrity
       {:ok,
        %__MODULE__{
          type: type,
@@ -261,6 +262,8 @@ defmodule ExSTUN.Message do
   @spec check_fingerprint(t()) :: boolean()
   def check_fingerprint(%__MODULE__{} = msg) do
     {:ok, %Fingerprint{} = fingerprint} = get_attribute(msg, Fingerprint)
+
+    # - 8 for Fingerprint Attribute length
     len = byte_size(msg.raw) - (4 + 4)
     <<msg_without_fingerprint::binary-size(len), _rest::binary>> = msg.raw
     crc = :erlang.crc32(msg_without_fingerprint)
@@ -338,12 +341,8 @@ defmodule ExSTUN.Message do
   defp decode_next_attr(_other), do: {:error, :malformed_attribute}
 
   defp strip_padding(data, padding_len) when byte_size(data) >= padding_len do
-    case data do
-      # this is not compliant with RFC 5389
-      # RFC 5389 allows padding bits to be any value
-      <<0::padding_len*8, rest::binary>> -> {:ok, rest}
-      _other -> {:error, :malformed_attr_padding}
-    end
+    <<_::padding_len*8, rest::binary>> = data
+    {:ok, rest}
   end
 
   defp strip_padding(_data, _padding_len), do: {:error, :malformed_attr_padding}
