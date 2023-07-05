@@ -117,14 +117,14 @@ defmodule ExSTUN.Message.Attribute.XORMappedAddress do
   end
 
   defp bxor_address({a, b, c, d, e, f, g, h}, cookie_trans_id) do
-    x_a = bxor(a, cookie_trans_id >>> 112 &&& 0b11111111)
-    x_b = bxor(b, cookie_trans_id >>> 96 &&& 0b11111111)
-    x_c = bxor(c, cookie_trans_id >>> 80 &&& 0b11111111)
-    x_d = bxor(d, cookie_trans_id >>> 64 &&& 0b11111111)
-    x_e = bxor(e, cookie_trans_id >>> 48 &&& 0b11111111)
-    x_f = bxor(f, cookie_trans_id >>> 32 &&& 0b11111111)
-    x_g = bxor(g, cookie_trans_id >>> 16 &&& 0b11111111)
-    x_h = bxor(h, cookie_trans_id &&& 0b11111111)
+    x_a = bxor(a, cookie_trans_id >>> 112 &&& 0xFFFF)
+    x_b = bxor(b, cookie_trans_id >>> 96 &&& 0xFFFF)
+    x_c = bxor(c, cookie_trans_id >>> 80 &&& 0xFFFF)
+    x_d = bxor(d, cookie_trans_id >>> 64 &&& 0xFFFF)
+    x_e = bxor(e, cookie_trans_id >>> 48 &&& 0xFFFF)
+    x_f = bxor(f, cookie_trans_id >>> 32 &&& 0xFFFF)
+    x_g = bxor(g, cookie_trans_id >>> 16 &&& 0xFFFF)
+    x_h = bxor(h, cookie_trans_id &&& 0xFFFF)
     {x_a, x_b, x_c, x_d, x_e, x_f, x_g, x_h}
   end
 
