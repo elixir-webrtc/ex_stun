@@ -197,6 +197,28 @@ defmodule ExSTUN.Message do
   end
 
   @doc """
+  Gets all attributes of given type from the message.
+
+  `attr_mod` is a module implementing `ExSTUN.Message.Attribute` behaviour.
+  Returns `nil` if there is no attribute of given type.
+  """
+  @spec get_all_attributes(t(), module()) :: {:ok, [struct()]} | {:error, atom()} | nil
+  def get_all_attributes(%__MODULE__{attributes: raw_attrs} = msg, attr_mod) do
+    type = attr_mod.type()
+
+    attrs =
+      Enum.flat_map(raw_attrs, &if(&1.type == type, do: [attr_mod.from_raw(&1, msg)], else: []))
+
+    error = Enum.find(attrs, &match?({:error, _reason}, &1))
+
+    cond do
+      attrs == [] -> nil
+      not is_nil(error) -> error
+      true -> {:ok, Enum.map(attrs, fn {:ok, attr} -> attr end)}
+    end
+  end
+
+  @doc """
   Authenticates a message long-term mechanism.
 
   `password` depends on the STUN authentication method and has to
