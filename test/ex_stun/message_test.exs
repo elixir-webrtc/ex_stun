@@ -226,6 +226,26 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
+  describe "get_all_attributes/2" do
+    test "message with two expected attributes" do
+      message = <<@header::binary, @attr::binary, @attr::binary>>
+
+      assert {:ok, message} = Message.decode(message)
+      assert_message_header(message)
+
+      assert {:ok, [%Software{}, %Software{}]} = Message.get_all_attributes(message, Software)
+    end
+
+    test "no attributes" do
+      message = <<@header::binary>>
+
+      assert {:ok, message} = Message.decode(message)
+      assert_message_header(message)
+
+      assert nil == Message.get_all_attributes(message, Software)
+    end
+  end
+
   describe "encode/1" do
     test "message with 1 attribute" do
       <<t_id::96>> = @transaction_id
