@@ -207,7 +207,9 @@ defmodule ExSTUN.Message do
     type = attr_mod.type()
 
     attrs =
-      Enum.flat_map(raw_attrs, &if(&1.type == type, do: [attr_mod.from_raw(&1, msg)], else: []))
+      raw_attrs
+      |> Enum.filter(&(&1.type == type))
+      |> Enum.map(&attr_mod.from_raw(&1, msg))
 
     error = Enum.find(attrs, &match?({:error, _reason}, &1))
 
