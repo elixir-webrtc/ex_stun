@@ -229,28 +229,37 @@ defmodule ExSTUN.Message do
   `key` is a key used for calculating MAC and can be used
   for adding message integrity in a response. See `with_integrity/2`.
   """
-  @spec authenticate_lt(t(), binary()) :: {:ok, key :: binary()} | :error
+  @spec authenticate_lt(t(), binary()) ::
+          {:ok, key :: binary()}
+          | {:error,
+             :no_message_integrity
+             | :no_username
+             | :no_realm
+             | :no_matching_message_integrity
+             | atom()}
   def authenticate_lt(msg, password) do
-    {:ok, %MessageIntegrity{} = msg_int} = get_attribute(msg, MessageIntegrity)
-    {:ok, %Username{value: username}} = get_attribute(msg, Username)
-    {:ok, %Realm{value: realm}} = get_attribute(msg, Realm)
+    with {:ok, %MessageIntegrity{} = msg_int} <- get_message_integrity(msg),
+         {:ok, %Username{value: username}} <- get_username(msg),
+         {:ok, %Realm{value: realm}} <- get_realm(msg) do
+      key = username <> ":" <> realm <> ":" <> password
+      key = :crypto.hash(:md5, key)
 
-    key = username <> ":" <> realm <> ":" <> password
-    key = :crypto.hash(:md5, key)
+      # + 20 for STUN message header
+      # - 24 for message integrity
+      len = msg.len_to_int + 20 - 24
+      <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
+      <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
+      msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
 
-    # + 20 for STUN message header
-    # - 24 for message integrity
-    len = msg.len_to_int + 20 - 24
-    <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
-    <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
-    msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
+      mac = :crypto.mac(:hmac, :sha, key, msg_without_integrity)
 
-    mac = :crypto.mac(:hmac, :sha, key, msg_without_integrity)
-
-    if mac == msg_int.value do
-      {:ok, key}
+      if mac == msg_int.value do
+        {:ok, key}
+      else
+        {:error, :no_matching_message_integrity}
+      end
     else
-      :error
+      {:error, _reason} = err -> err
     end
   end
 
@@ -262,37 +271,55 @@ defmodule ExSTUN.Message do
   `key` is a key used for calculating MAC and can be used
   for adding message integrity in a response. See `with_integrity/2`.
   """
-  @spec authenticate_st(t(), binary()) :: {:ok, key :: binary()} | :error
+  @spec authenticate_st(t(), binary()) ::
+          {:ok, key :: binary()}
+          | {:error, :no_message_integrity | :no_matching_message_integrity | atom()}
   def authenticate_st(msg, password) do
-    {:ok, %MessageIntegrity{} = msg_int} = get_attribute(msg, MessageIntegrity)
+    case get_message_integrity(msg) do
+      {:ok, %MessageIntegrity{} = msg_int} ->
+        # + 20 for STUN message header
+        # - 24 for message integrity
+        len = msg.len_to_int + 20 - (20 + 4)
+        <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
+        <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
+        msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
 
-    # + 20 for STUN message header
-    # - 24 for message integrity
-    len = msg.len_to_int + 20 - (20 + 4)
-    <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
-    <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
-    msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
+        # in short-term authentication key == password
+        mac = :crypto.mac(:hmac, :sha, password, msg_without_integrity)
 
-    # in short-term authentication key == password
-    mac = :crypto.mac(:hmac, :sha, password, msg_without_integrity)
+        if mac == msg_int.value do
+          {:ok, password}
+        else
+          {:error, :no_matching_message_integrity}
+        end
 
-    if mac == msg_int.value do
-      {:ok, password}
-    else
-      :error
+      {:error, _reason} = err ->
+        err
     end
   end
 
-  @spec check_fingerprint(t()) :: boolean()
+  @spec check_fingerprint(t()) ::
+          :ok | {:error, :no_fingerprint | :no_matching_fingerprint | atom()}
   def check_fingerprint(%__MODULE__{} = msg) do
-    {:ok, %Fingerprint{} = fingerprint} = get_attribute(msg, Fingerprint)
+    case get_attribute(msg, Fingerprint) do
+      {:ok, %Fingerprint{} = fingerprint} ->
+        # - 8 for Fingerprint Attribute length
+        len = byte_size(msg.raw) - (4 + 4)
+        <<msg_without_fingerprint::binary-size(len), _rest::binary>> = msg.raw
+        crc = :erlang.crc32(msg_without_fingerprint)
 
-    # - 8 for Fingerprint Attribute length
-    len = byte_size(msg.raw) - (4 + 4)
-    <<msg_without_fingerprint::binary-size(len), _rest::binary>> = msg.raw
-    crc = :erlang.crc32(msg_without_fingerprint)
+        if bxor(crc, @fingerprint_xor_val) == fingerprint.value do
+          :ok
+        else
+          {:error, :no_matching_fingerprint}
+        end
 
-    bxor(crc, @fingerprint_xor_val) == fingerprint.value
+      nil ->
+        {:error, :no_fingerprint}
+
+      {:error, _reason} = err ->
+        err
+    end
   end
 
   defp new_transaction_id() do
@@ -370,4 +397,25 @@ defmodule ExSTUN.Message do
   end
 
   defp strip_padding(_data, _padding_len), do: {:error, :malformed_attr_padding}
+
+  defp get_message_integrity(msg) do
+    case get_attribute(msg, MessageIntegrity) do
+      nil -> {:error, :no_message_integrity}
+      other -> other
+    end
+  end
+
+  defp get_username(msg) do
+    case get_attribute(msg, Username) do
+      nil -> {:error, :no_username}
+      other -> other
+    end
+  end
+
+  defp get_realm(msg) do
+    case get_attribute(msg, Realm) do
+      nil -> {:error, :no_realm}
+      other -> other
+    end
+  end
 end

@@ -356,7 +356,19 @@ defmodule ExSTUN.MessageTest do
 
       {:ok, %Message{} = decoded} = Message.decode(encoded)
 
-      assert :error = Message.authenticate_st(decoded, "invalidkey")
+      assert {:error, :no_matching_message_integrity} ==
+               Message.authenticate_st(decoded, "invalidkey")
+    end
+
+    test "no message integrity" do
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([%Username{value: "username"}])
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      assert {:error, :no_message_integrity} == Message.authenticate_st(decoded, "somekey")
     end
   end
 
@@ -382,7 +394,7 @@ defmodule ExSTUN.MessageTest do
       {:ok, username_attr} = Message.get_attribute(decoded, Username)
 
       assert username == username_attr.value
-      {:ok, ^key} = Message.authenticate_lt(decoded, password)
+      assert {:ok, ^key} = Message.authenticate_lt(decoded, password)
     end
 
     test "invalid credentials" do
@@ -403,7 +415,53 @@ defmodule ExSTUN.MessageTest do
 
       {:ok, %Message{} = decoded} = Message.decode(encoded)
 
-      assert :error = Message.authenticate_lt(decoded, "invalidpassword")
+      assert {:error, :no_matching_message_integrity} ==
+               Message.authenticate_lt(decoded, "invalidpassword")
+    end
+
+    test "no username, realm or message integrity" do
+      username = "someuser"
+      password = "somepassword"
+      realm = "somerealm"
+
+      key = username <> ":" <> realm <> ":" <> password
+      key = :crypto.hash(:md5, key)
+
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([
+          %Realm{value: realm}
+        ])
+        |> Message.with_integrity(key)
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      assert {:error, :no_username} = Message.authenticate_lt(decoded, password)
+
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([
+          %Username{value: username}
+        ])
+        |> Message.with_integrity(key)
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      assert {:error, :no_realm} = Message.authenticate_lt(decoded, password)
+
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new([
+          %Username{value: username},
+          %Realm{value: realm}
+        ])
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+
+      assert {:error, :no_message_integrity} = Message.authenticate_lt(decoded, password)
     end
   end
 
@@ -434,7 +492,17 @@ defmodule ExSTUN.MessageTest do
 
       {:ok, %Message{} = decoded} = Message.decode(encoded)
       assert decoded.transaction_id == t_id
-      assert Message.check_fingerprint(decoded) == false
+      assert Message.check_fingerprint(decoded) == {:error, :no_matching_fingerprint}
+    end
+
+    test "no fingerprint" do
+      encoded =
+        %Message.Type{class: :request, method: :binding}
+        |> Message.new()
+        |> Message.encode()
+
+      {:ok, %Message{} = decoded} = Message.decode(encoded)
+      assert {:error, :no_fingerprint} == Message.check_fingerprint(decoded)
     end
   end
 
