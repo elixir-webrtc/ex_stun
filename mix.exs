@@ -10,6 +10,8 @@ defmodule ExSTUN.MixProject do
       version: @version,
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
+      description: "Implementation of STUN protocol",
+      package: package(),
       deps: deps(),
 
       # docs
@@ -28,14 +30,19 @@ defmodule ExSTUN.MixProject do
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger, :crypto]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  def package do
+    [
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => "https://github.com/elixir-webrtc/ex_stun"}
+    ]
+  end
+
   defp deps do
     [
       {:excoveralls, "~> 0.14.6", only: :test, runtime: false},
