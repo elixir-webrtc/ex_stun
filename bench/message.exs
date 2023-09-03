@@ -70,6 +70,7 @@ fix_raw_xor_addr = xor_addr_to_raw.()
 
 Benchee.run(
   %{
+    "new_transaction_id" => fn -> <<t_id::12*8>> = :crypto.strong_rand_bytes(12) end,
     "binding_request.encode" => fn -> binding_request_enc.() end,
     "binding_request.decode" => fn -> {:ok, _} = Message.decode(fix_enc_binding_request) end,
     "binding_response.encode" => fn -> binding_response_enc.() end,
