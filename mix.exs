@@ -10,7 +10,7 @@ defmodule ExSTUN.MixProject do
       version: @version,
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
-      description: "Implementation of STUN protocol",
+      description: "Implementation of the STUN protocol",
       package: package(),
       deps: deps(),
 

@@ -24,7 +24,7 @@ defmodule ExSTUN.RFC5769Test do
     assert {:ok, %Username{value: "evtj:h6vY"}} = Message.get_attribute(message, Username)
 
     password = "VOkJxbRl1RmTxUk/WvJxBt"
-    assert {:ok, ^password} = Message.authenticate_st(message, password)
+    assert :ok == Message.authenticate(message, password)
     assert Message.check_fingerprint(message)
   end
 
@@ -47,7 +47,7 @@ defmodule ExSTUN.RFC5769Test do
              Message.get_attribute(message, XORMappedAddress)
 
     password = "VOkJxbRl1RmTxUk/WvJxBt"
-    assert {:ok, ^password} = Message.authenticate_st(message, password)
+    assert :ok == Message.authenticate(message, password)
     assert Message.check_fingerprint(message)
   end
 
@@ -74,7 +74,7 @@ defmodule ExSTUN.RFC5769Test do
             }} = Message.get_attribute(message, XORMappedAddress)
 
     password = "VOkJxbRl1RmTxUk/WvJxBt"
-    assert {:ok, ^password} = Message.authenticate_st(message, password)
+    assert :ok == Message.authenticate(message, password)
     assert Message.check_fingerprint(message)
   end
 
@@ -104,9 +104,7 @@ defmodule ExSTUN.RFC5769Test do
     assert {:ok, %Realm{value: ^realm}} = Message.get_attribute(message, Realm)
 
     password = "TheMatrIX"
-    key = username <> ":" <> realm <> ":" <> password
-    key = :crypto.hash(:md5, key)
-
-    assert {:ok, ^key} = Message.authenticate_lt(message, password)
+    key = Message.lt_key(username, password, realm)
+    assert :ok == Message.authenticate(message, key)
   end
 end
