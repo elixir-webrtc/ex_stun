@@ -14,8 +14,7 @@ alias ExSTUN.Message.Type
 # therefore they are not fully symmetric with "encode" benchmarks
 
 fix_lt_password = :crypto.mac(:hmac, :sha, "123456789", "someusername") |> :base64.encode()
-fix_lt_key = "someusername" <> ":" <> "somerealm" <> ":" <> fix_lt_password
-fix_lt_key = :crypto.hash(:md5, fix_lt_key)
+fix_lt_key = Message.lt_key("someusername", fix_lt_password, "somerealm")
 fix_st_key = "somekey"
 
 <<fix_t_id::12*8>> = :crypto.strong_rand_bytes(12)
@@ -77,15 +76,20 @@ Benchee.run(
     "binding_response.decode" => fn -> {:ok, _} = Message.decode(fix_enc_binding_response) end,
     "message_full.encode" => fn -> full_msg_enc.(fix_st_key) end,
     "message_full.decode" => fn -> {:ok, _} = Message.decode(fix_enc_full_message) end,
-    "message_full.authenticate_st" => fn ->
-      {:ok, _} = Message.authenticate_st(fix_full_message, "someusername", fix_st_key)
+    "message_full.authenticate (short-term)" => fn ->
+      # check if username is correct and authenticate
+      {:ok, username} = Message.get_attribute(fix_full_message, Username)
+      username.value == "someusername"
+      :ok = Message.authenticate(fix_full_message, fix_st_key)
     end,
-    "message_full.authenticate_lt" => fn ->
-      password = :crypto.mac(:hmac, :sha, "123456789", "someusername") |> :base64.encode()
-      {:ok, _} = Message.authenticate_lt(fix_full_lt_message, password)
+    "message_full.authenticate (long-term)" => fn ->
+      {:ok, username} = Message.get_attribute(fix_full_lt_message, Username)
+      {:ok, realm} = Message.get_attribute(fix_full_lt_message, Realm)
+      key = Message.lt_key(username.value, fix_lt_password, realm.value)
+      :ok = Message.authenticate(fix_full_lt_message, key)
     end,
     "message_full.check_fingerprint" => fn ->
-      true = Message.check_fingerprint(fix_full_message)
+      :ok = Message.check_fingerprint(fix_full_message)
     end,
     "type.to_value" => fn ->
       Type.to_value(%Type{class: :success_response, method: :binding})

@@ -329,7 +329,7 @@ defmodule ExSTUN.MessageTest do
     end
   end
 
-  describe "authenticate_st/2" do
+  describe "authenticate/2" do
     test "valid key" do
       key = "somekey"
       username = "someuser"
@@ -344,7 +344,7 @@ defmodule ExSTUN.MessageTest do
       {:ok, username_attr} = Message.get_attribute(decoded, Username)
 
       assert username == username_attr.value
-      assert {:ok, ^key} = Message.authenticate_st(decoded, key)
+      assert :ok == Message.authenticate(decoded, key)
     end
 
     test "invalid key" do
@@ -357,7 +357,7 @@ defmodule ExSTUN.MessageTest do
       {:ok, %Message{} = decoded} = Message.decode(encoded)
 
       assert {:error, :no_matching_message_integrity} ==
-               Message.authenticate_st(decoded, "invalidkey")
+               Message.authenticate(decoded, "invalidkey")
     end
 
     test "no message integrity" do
@@ -368,100 +368,7 @@ defmodule ExSTUN.MessageTest do
 
       {:ok, %Message{} = decoded} = Message.decode(encoded)
 
-      assert {:error, :no_message_integrity} == Message.authenticate_st(decoded, "somekey")
-    end
-  end
-
-  describe "authenticate_lt/2" do
-    test "valid credentials" do
-      username = "someuser"
-      password = "somepassword"
-      realm = "somerealm"
-
-      key = username <> ":" <> realm <> ":" <> password
-      key = :crypto.hash(:md5, key)
-
-      encoded =
-        %Message.Type{class: :request, method: :binding}
-        |> Message.new([
-          %Username{value: username},
-          %Realm{value: realm}
-        ])
-        |> Message.with_integrity(key)
-        |> Message.encode()
-
-      {:ok, %Message{} = decoded} = Message.decode(encoded)
-      {:ok, username_attr} = Message.get_attribute(decoded, Username)
-
-      assert username == username_attr.value
-      assert {:ok, ^key} = Message.authenticate_lt(decoded, password)
-    end
-
-    test "invalid credentials" do
-      username = "someuser"
-      realm = "somerealm"
-
-      key = username <> ":" <> realm <> ":" <> "somepassowrd"
-      key = :crypto.hash(:md5, key)
-
-      encoded =
-        %Message.Type{class: :request, method: :binding}
-        |> Message.new([
-          %Username{value: username},
-          %Realm{value: realm}
-        ])
-        |> Message.with_integrity(key)
-        |> Message.encode()
-
-      {:ok, %Message{} = decoded} = Message.decode(encoded)
-
-      assert {:error, :no_matching_message_integrity} ==
-               Message.authenticate_lt(decoded, "invalidpassword")
-    end
-
-    test "no username, realm or message integrity" do
-      username = "someuser"
-      password = "somepassword"
-      realm = "somerealm"
-
-      key = username <> ":" <> realm <> ":" <> password
-      key = :crypto.hash(:md5, key)
-
-      encoded =
-        %Message.Type{class: :request, method: :binding}
-        |> Message.new([
-          %Realm{value: realm}
-        ])
-        |> Message.with_integrity(key)
-        |> Message.encode()
-
-      {:ok, %Message{} = decoded} = Message.decode(encoded)
-
-      assert {:error, :no_username} = Message.authenticate_lt(decoded, password)
-
-      encoded =
-        %Message.Type{class: :request, method: :binding}
-        |> Message.new([
-          %Username{value: username}
-        ])
-        |> Message.with_integrity(key)
-        |> Message.encode()
-
-      {:ok, %Message{} = decoded} = Message.decode(encoded)
-
-      assert {:error, :no_realm} = Message.authenticate_lt(decoded, password)
-
-      encoded =
-        %Message.Type{class: :request, method: :binding}
-        |> Message.new([
-          %Username{value: username},
-          %Realm{value: realm}
-        ])
-        |> Message.encode()
-
-      {:ok, %Message{} = decoded} = Message.decode(encoded)
-
-      assert {:error, :no_message_integrity} = Message.authenticate_lt(decoded, password)
+      assert {:error, :no_message_integrity} == Message.authenticate(decoded, "somekey")
     end
   end
 

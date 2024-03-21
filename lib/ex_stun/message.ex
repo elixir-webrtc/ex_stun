@@ -19,8 +19,8 @@ defmodule ExSTUN.Message do
   ```
   """
   import Bitwise
-  alias ExSTUN.Message.Attribute.Fingerprint
-  alias ExSTUN.Message.Attribute.{MessageIntegrity, Realm, Username}
+
+  alias ExSTUN.Message.Attribute.{Fingerprint, MessageIntegrity}
   alias ExSTUN.Message.{RawAttribute, Type}
 
   @magic_cookie 0x2112A442
@@ -221,74 +221,40 @@ defmodule ExSTUN.Message do
   end
 
   @doc """
-  Authenticates a message long-term mechanism.
-
-  `password` depends on the STUN authentication method and has to
-  be provided from the outside.
-
-  `key` is a key used for calculating MAC and can be used
-  for adding message integrity in a response. See `with_integrity/2`.
+  Create longe-term authentication key.
   """
-  @spec authenticate_lt(t(), binary()) ::
-          {:ok, key :: binary()}
-          | {:error,
-             :no_message_integrity
-             | :no_username
-             | :no_realm
-             | :no_matching_message_integrity
-             | atom()}
-  def authenticate_lt(msg, password) do
-    with {:ok, %MessageIntegrity{} = msg_int} <- get_message_integrity(msg),
-         {:ok, %Username{value: username}} <- get_username(msg),
-         {:ok, %Realm{value: realm}} <- get_realm(msg) do
-      key = username <> ":" <> realm <> ":" <> password
-      key = :crypto.hash(:md5, key)
-
-      # + 20 for STUN message header
-      # - 24 for message integrity
-      len = msg.len_to_int + 20 - 24
-      <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
-      <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
-      msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
-
-      mac = :crypto.mac(:hmac, :sha, key, msg_without_integrity)
-
-      if mac == msg_int.value do
-        {:ok, key}
-      else
-        {:error, :no_matching_message_integrity}
-      end
-    else
-      {:error, _reason} = err -> err
-    end
+  @spec lt_key(binary(), binary(), binary()) :: binary()
+  def lt_key(username, password, realm) do
+    :crypto.hash(:md5, username <> ":" <> realm <> ":" <> password)
   end
 
   @doc """
-  Authenticates a message using short-term mechanism.
+  Authenticates a message.
 
-  It is assumed that username attribute of this message is valid.
+  `key` depends on the authentication method.
+  When authenticating using short-term mechanism, it is simply a password.
+  When authenticating using long-term mechanism, use `lt_key/3` to obtain the key.
 
-  `key` is a key used for calculating MAC and can be used
-  for adding message integrity in a response. See `with_integrity/2`.
+  Presence of username, realm and nonce attributes is not checked.
+  Depending on the authentication method and its context (client/server side),
+  user has to perform those checks on their own.
   """
-  @spec authenticate_st(t(), binary()) ::
-          {:ok, key :: binary()}
-          | {:error, :no_message_integrity | :no_matching_message_integrity | atom()}
-  def authenticate_st(msg, password) do
+  @spec authenticate(t(), binary()) ::
+          :ok | {:error, :no_message_integrity, :no_matching_message_integrity | atom()}
+  def authenticate(msg, key) do
     case get_message_integrity(msg) do
       {:ok, %MessageIntegrity{} = msg_int} ->
         # + 20 for STUN message header
         # - 24 for message integrity
-        len = msg.len_to_int + 20 - (20 + 4)
+        len = msg.len_to_int + 20 - 24
         <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
         <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
         msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
 
-        # in short-term authentication key == password
-        mac = :crypto.mac(:hmac, :sha, password, msg_without_integrity)
+        mac = :crypto.mac(:hmac, :sha, key, msg_without_integrity)
 
         if mac == msg_int.value do
-          {:ok, password}
+          :ok
         else
           {:error, :no_matching_message_integrity}
         end
@@ -401,20 +367,6 @@ defmodule ExSTUN.Message do
   defp get_message_integrity(msg) do
     case get_attribute(msg, MessageIntegrity) do
       nil -> {:error, :no_message_integrity}
-      other -> other
-    end
-  end
-
-  defp get_username(msg) do
-    case get_attribute(msg, Username) do
-      nil -> {:error, :no_username}
-      other -> other
-    end
-  end
-
-  defp get_realm(msg) do
-    case get_attribute(msg, Realm) do
-      nil -> {:error, :no_realm}
       other -> other
     end
   end
