@@ -239,8 +239,7 @@ defmodule ExSTUN.Message do
   Depending on the authentication method and its context (client/server side),
   user has to perform those checks on their own.
   """
-  @spec authenticate(t(), binary()) ::
-          :ok | {:error, :no_message_integrity, :no_matching_message_integrity | atom()}
+  @spec authenticate(t(), binary()) :: :ok | {:error, atom()}
   def authenticate(msg, key) do
     case get_message_integrity(msg) do
       {:ok, %MessageIntegrity{} = msg_int} ->
@@ -264,8 +263,7 @@ defmodule ExSTUN.Message do
     end
   end
 
-  @spec check_fingerprint(t()) ::
-          :ok | {:error, :no_fingerprint | :no_matching_fingerprint | atom()}
+  @spec check_fingerprint(t()) :: :ok | {:error, atom()}
   def check_fingerprint(%__MODULE__{} = msg) do
     case get_attribute(msg, Fingerprint) do
       {:ok, %Fingerprint{} = fingerprint} ->
