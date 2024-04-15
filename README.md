@@ -11,7 +11,7 @@ Implementation of the STUN protocol in Elixir - [RFC 8489](https://datatracker.i
 ```elixir
 def deps do
   [
-    {:ex_stun, "~> 0.1.0"}
+    {:ex_stun, "~> 0.2.0"}
   ]
 end
 ```
