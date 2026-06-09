@@ -246,7 +246,7 @@ defmodule ExSTUN.Message do
         # + 20 for STUN message header
         # - 24 for message integrity
         len = msg.len_to_int + 20 - 24
-        <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
+        <<msg_without_integrity::binary-size(^len), _rest::binary>> = msg.raw
         <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
         msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
 
@@ -269,7 +269,7 @@ defmodule ExSTUN.Message do
       {:ok, %Fingerprint{} = fingerprint} ->
         # - 8 for Fingerprint Attribute length
         len = byte_size(msg.raw) - (4 + 4)
-        <<msg_without_fingerprint::binary-size(len), _rest::binary>> = msg.raw
+        <<msg_without_fingerprint::binary-size(^len), _rest::binary>> = msg.raw
         crc = :erlang.crc32(msg_without_fingerprint)
 
         if bxor(crc, @fingerprint_xor_val) == fingerprint.value do
@@ -356,7 +356,7 @@ defmodule ExSTUN.Message do
   defp decode_next_attr(_other), do: {:error, :malformed_attribute}
 
   defp strip_padding(data, padding_len) when byte_size(data) >= padding_len do
-    <<_::padding_len*8, rest::binary>> = data
+    <<_::(^padding_len)*8, rest::binary>> = data
     {:ok, rest}
   end
 
