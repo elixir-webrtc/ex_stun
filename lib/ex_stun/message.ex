@@ -103,7 +103,7 @@ defmodule ExSTUN.Message do
   Encodes a STUN message into a binary.
   """
   @spec encode(t()) :: binary()
-  def encode(message) do
+  def encode(%__MODULE__{} = message) do
     type = Type.to_value(message.type)
     attributes = encode_attributes(message.attributes)
     length = byte_size(attributes)
@@ -112,7 +112,7 @@ defmodule ExSTUN.Message do
       <<0::1, 0::1, type::14, length::16, @magic_cookie::32, message.transaction_id::96,
         attributes::binary>>
 
-    message = %__MODULE__{message | raw: raw}
+    message = %{message | raw: raw}
 
     message =
       case message.integrity do
@@ -124,24 +124,24 @@ defmodule ExSTUN.Message do
     message.raw
   end
 
-  defp add_integrity(msg, key) do
+  defp add_integrity(%__MODULE__{} = msg, key) do
     <<pre::binary-size(2), length::16, post::binary>> = msg.raw
     length = length + 20 + 4
     text = <<pre::binary, length::16, post::binary>>
     mac = :crypto.mac(:hmac, :sha, key, text)
     integrity = %MessageIntegrity{value: mac}
     raw_integrity = MessageIntegrity.to_raw(integrity, msg) |> RawAttribute.encode()
-    %__MODULE__{msg | raw: <<text::binary, raw_integrity::binary>>}
+    %{msg | raw: <<text::binary, raw_integrity::binary>>}
   end
 
-  defp add_fingerprint(msg) do
+  defp add_fingerprint(%__MODULE__{} = msg) do
     <<pre::binary-size(2), length::16, post::binary>> = msg.raw
     length = length + 4 + 4
     text = <<pre::binary, length::16, post::binary>>
     crc = :erlang.crc32(text)
     fingerprint = %Fingerprint{value: bxor(crc, @fingerprint_xor_val)}
     raw_fingerprint = Fingerprint.to_raw(fingerprint, msg) |> RawAttribute.encode()
-    %__MODULE__{msg | raw: <<text::binary, raw_fingerprint::binary>>}
+    %{msg | raw: <<text::binary, raw_fingerprint::binary>>}
   end
 
   @doc """
@@ -178,8 +178,8 @@ defmodule ExSTUN.Message do
   Adds attribute to a message.
   """
   @spec add_attribute(t(), RawAttribute.t()) :: t()
-  def add_attribute(message, %RawAttribute{} = attr) do
-    %__MODULE__{message | attributes: message.attributes ++ [attr]}
+  def add_attribute(%__MODULE__{} = message, %RawAttribute{} = attr) do
+    %{message | attributes: message.attributes ++ [attr]}
   end
 
   @doc """
@@ -246,7 +246,7 @@ defmodule ExSTUN.Message do
         # + 20 for STUN message header
         # - 24 for message integrity
         len = msg.len_to_int + 20 - 24
-        <<msg_without_integrity::binary-size(len), _rest::binary>> = msg.raw
+        <<msg_without_integrity::binary-size(^len), _rest::binary>> = msg.raw
         <<pre_len::binary-size(2), _len::16, post_len::binary>> = msg_without_integrity
         msg_without_integrity = <<pre_len::binary, msg.len_to_int::16, post_len::binary>>
 
@@ -269,7 +269,7 @@ defmodule ExSTUN.Message do
       {:ok, %Fingerprint{} = fingerprint} ->
         # - 8 for Fingerprint Attribute length
         len = byte_size(msg.raw) - (4 + 4)
-        <<msg_without_fingerprint::binary-size(len), _rest::binary>> = msg.raw
+        <<msg_without_fingerprint::binary-size(^len), _rest::binary>> = msg.raw
         crc = :erlang.crc32(msg_without_fingerprint)
 
         if bxor(crc, @fingerprint_xor_val) == fingerprint.value do
@@ -356,7 +356,7 @@ defmodule ExSTUN.Message do
   defp decode_next_attr(_other), do: {:error, :malformed_attribute}
 
   defp strip_padding(data, padding_len) when byte_size(data) >= padding_len do
-    <<_::padding_len*8, rest::binary>> = data
+    <<_::(^padding_len)*8, rest::binary>> = data
     {:ok, rest}
   end
 

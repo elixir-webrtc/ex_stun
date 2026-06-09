@@ -48,7 +48,7 @@ defmodule ExSTUN.Message.Type do
   Converts integer into a type.
   """
   @spec from_value(non_neg_integer()) :: {:ok, t()} | {:error, :malformed_type}
-  def from_value(value) when value in 0..((2 <<< 14) - 1) do
+  def from_value(value) when value in 0..((2 <<< 14) - 1)//1 do
     <<a::5, c0::1, b::3, c1::1, d::4>> = <<value::14>>
 
     <<class::2>> = <<c0::1, c1::1>>
